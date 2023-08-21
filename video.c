@@ -1,5 +1,7 @@
 #include "md_api.h"
 
+// https://md.railgun.works/index.php?title=VDP
+
 void video_init() {
 	VDP_CTRL_W = 0x8004; // No HBI, no HV latch
 	VDP_CTRL_W = 0x8134; // No display, VBI, DMA OK, V28
@@ -17,7 +19,7 @@ void video_init() {
 }
 
 void video_enable() {
-	VDP_CTRL_W = 0x8174;
+	VDP_CTRL_W = 0x8174;	// Enable display
 }
 
 void video_load_palette(uint8_t baseAddr,const uint16_t *palette,uint8_t count) {

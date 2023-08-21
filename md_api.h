@@ -34,7 +34,7 @@ typedef unsigned int uint32_t;
 #define VDP_CTRL_L (*(volatile uint32_t*)0xC00004)
 
 extern void start();
-extern uint8_t joypad_read(int which);
+extern uint16_t joypad_read(int which);
 #define JOYPAD_UP 	0x0001
 #define JOYPAD_DOWN	0x0002
 #define JOYPAD_LEFT	0x0004
@@ -43,10 +43,11 @@ extern uint8_t joypad_read(int which);
 #define JOYPAD_C	0x0020
 #define JOYPAD_A	0x0040
 #define JOYPAD_START	0x0080
-#define JOYPAD_MODE	0x0100
-#define JOYPAD_Z	0x0200
-#define JOYPAD_Y	0x0400
-#define JOYPAD_X	0x0800
+#define JOYPAD_Z	0x0100
+#define JOYPAD_Y	0x0200
+#define JOYPAD_X	0x0400
+#define JOYPAD_MODE	0x0800
+#define JOYPAD_6	0x8000
 
 extern void video_init();
 extern void video_enable();
@@ -66,3 +67,17 @@ inline uint16_t video_plane_b_addr(uint8_t x,uint8_t y) {
 	return y * 128 + x * 2 + 0xE000;
 }
 
+struct nametable_t {
+	uint16_t priority:1, palette:2, vFlip:1, hFlip:1, tileIndex:11;
+};
+
+union sprite_t {
+	struct {
+		uint16_t vPos;
+		uint16_t unused1:4, hSize: 2, vSize: 2, link: 8;
+		struct nametable_t def;
+		uint16_t hPos;
+	} asStruct;
+	uint16_t asShort[4];
+	uint32_t asLong[2];
+};

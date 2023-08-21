@@ -34,6 +34,11 @@ static void draw_pad(const char *tag,uint8_t x,uint8_t y,uint16_t attr,uint16_t 
 	VDP_DATA_W = bits & JOYPAD_B? 'B' : ' ';
 	VDP_DATA_W = bits & JOYPAD_C? 'C' : ' ';
 	VDP_DATA_W = bits & JOYPAD_START? 'S' : ' ';
+	VDP_DATA_W = bits & JOYPAD_X? 'X' : ' ';
+	VDP_DATA_W = bits & JOYPAD_Y? 'Y' : ' ';
+	VDP_DATA_W = bits & JOYPAD_Z? 'Z' : ' ';
+	VDP_DATA_W = bits & JOYPAD_MODE? 'M' : ' ';
+	VDP_DATA_W = bits & JOYPAD_6? '6' : ' ';
 }
 
 void _start() {
@@ -101,6 +106,13 @@ void _start() {
 		while (!vbi);
 		vbi = 0;
 		video_draw_string(video_plane_a_addr(10,14),0x2000,timer);
+
+		video_set_vram_write_addr(0xF000);
+		VDP_DATA_W = 128 + 50 + ((elapsed >> 10) & 127);
+		VDP_DATA_W = 0x0F00;
+		VDP_DATA_W = 0x2000 | 'A';
+		VDP_DATA_W = 128 + 20 + ((elapsed >> 9) & 255);
+
 		uint16_t pad0 = joypad_read(0), pad1 = joypad_read(1);
 		if (pad0 & JOYPAD_START)
 			elapsed = 0;
