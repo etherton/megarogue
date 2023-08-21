@@ -38,7 +38,7 @@ static void draw_pad(const char *tag,uint8_t x,uint8_t y,uint16_t attr,uint16_t 
 	VDP_DATA_W = bits & JOYPAD_Y? 'Y' : ' ';
 	VDP_DATA_W = bits & JOYPAD_Z? 'Z' : ' ';
 	VDP_DATA_W = bits & JOYPAD_MODE? 'M' : ' ';
-	VDP_DATA_W = bits & JOYPAD_6? '6' : ' ';
+	VDP_DATA_W = bits & JOYPAD_6? '6' : '3';
 }
 
 void _start() {
@@ -48,7 +48,7 @@ void _start() {
 	if (REG_VERSION_B & REG_VERSION_TMSS)
 		REG_TMSS_L = 'SEGA';
 	uint8_t flags = REG_VERSION_B;
-	video_init();
+	video_init(PLANE_SIZE_64_32);
 	// asm volatile("move #$2000,sr");
 	video_load_palette(0, pal, 32);
 	// video_set_palette_entry(0, 0x000E);
@@ -110,14 +110,14 @@ void _start() {
 		video_set_vram_write_addr(0xF000);
 		VDP_DATA_W = 128 + 50 + ((elapsed >> 10) & 127);
 		VDP_DATA_W = 0x0F00;
-		VDP_DATA_W = 0x2000 | 'A';
+		VDP_DATA_W = 0x3000 | 'A'; 
 		VDP_DATA_W = 128 + 20 + ((elapsed >> 9) & 255);
 
 		uint16_t pad0 = joypad_read(0), pad1 = joypad_read(1);
 		if (pad0 & JOYPAD_START)
 			elapsed = 0;
-		draw_pad("ONE ", 10,16,0, pad0);
-		draw_pad("TWO ", 10,18,0, pad1);
+		draw_pad("ONE ", 4,16,0, pad0);
+		draw_pad("TWO ", 4,18,0, pad1);
 		// video_set_palette_entry(1, n & 0xEEE);
 		// n += 0x010101;
 	}

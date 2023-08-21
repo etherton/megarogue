@@ -33,6 +33,14 @@ typedef unsigned int uint32_t;
 #define VDP_CTRL_W (*(volatile uint16_t*)0xC00004)
 #define VDP_CTRL_L (*(volatile uint32_t*)0xC00004)
 
+// Register $10 - width by height
+#define PLANE_SIZE_32_32	0x00
+#define PLANE_SIZE_64_32	0x01
+#define PLANE_SIZE_128_32	0x03
+#define PLANE_SIZE_32_64	0x10
+#define PLANE_SIZE_64_64	0x11
+#define PLANE_SIZE_32_128	0x30
+
 extern void start();
 extern uint16_t joypad_read(int which);
 #define JOYPAD_UP 	0x0001
@@ -49,7 +57,8 @@ extern uint16_t joypad_read(int which);
 #define JOYPAD_MODE	0x0800
 #define JOYPAD_6	0x8000
 
-extern void video_init();
+extern uint8_t video_plane_shift;
+extern void video_init(uint8_t plane_size /*PLANE_SIZE_...*/);
 extern void video_enable();
 extern void video_load_palette(uint8_t base,const uint16_t* values,uint8_t count);
 extern void video_set_palette_entry(uint8_t base,uint16_t entry);
@@ -61,15 +70,23 @@ inline void video_set_vram_write_addr(uint16_t addr) {
 extern void video_draw_string(uint16_t addr,uint16_t attributes,const char *s);
 // These assume 64 tiles wide
 inline uint16_t video_plane_a_addr(uint8_t x,uint8_t y) {
-	return y * 128 + x * 2 + 0xC000;
+	return (y << video_plane_shift) + x + x + 0xC000;
 }
 inline uint16_t video_plane_b_addr(uint8_t x,uint8_t y) {
-	return y * 128 + x * 2 + 0xE000;
+	return (y << video_plane_shift) + x + x + 0xE000;
 }
 
 struct nametable_t {
 	uint16_t priority:1, palette:2, vFlip:1, hFlip:1, tileIndex:11;
 };
+
+#define NT_PRIORITY  0x8000
+#define NT_PALETTE_0 0x0000
+#define NT_PALETTE_1 0x2000
+#define NT_PALETTE_2 0x4000
+#define NT_PALETTE_3 0x6000
+#define NT_VFLIP     0x1000
+#define NT_HFLIP     0x0800
 
 union sprite_t {
 	struct {

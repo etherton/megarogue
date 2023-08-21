@@ -2,7 +2,9 @@
 
 // https://md.railgun.works/index.php?title=VDP
 
-void video_init() {
+uint8_t video_plane_shift;
+
+void video_init(uint8_t plane_size) {
 	VDP_CTRL_W = 0x8004; // No HBI, no HV latch
 	VDP_CTRL_W = 0x8134; // No display, VBI, DMA OK, V28
 	VDP_CTRL_W = 0x8230; // Plane A: $C000
@@ -13,9 +15,13 @@ void video_init() {
 	VDP_CTRL_W = 0x8C81; // H40, no S/H, no interlace
 	VDP_CTRL_W = 0x8D3E; // Hscroll: $F800
 	VDP_CTRL_W = 0x8F02; // Autoincrement: 2 bytes
-	VDP_CTRL_W = 0x9001; // Tilemap size: 64x32
+	VDP_CTRL_W = 0x9000 | plane_size; // Tilemap size: 64x32
 	VDP_CTRL_W = 0x9100; // Hide window plane
 	VDP_CTRL_W = 0x9200; // Hide window plane
+	// shift in bytes per line
+	video_plane_shift = 6 + (plane_size & 3);
+	if (video_plane_shift==9)
+		video_plane_shift=8;
 }
 
 void video_enable() {
