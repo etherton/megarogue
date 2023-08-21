@@ -1,4 +1,5 @@
 #include "md_api.h"
+#include <stddef.h>
 
 #include "font8x8_basic.h"
 
@@ -41,12 +42,20 @@ static void draw_pad(const char *tag,uint8_t x,uint8_t y,uint16_t attr,uint16_t 
 	VDP_DATA_W = bits & JOYPAD_6? '6' : '3';
 }
 
+extern char _bstart[], _bend[];
+
 void _start() {
 	// MOVE to SR is 0100 0110 11xx xxxx; IM EA is 111 100; Final result is 0x46FC
 	asm(".long 0x46FC2700"); // move #0x2700, sr
 	// asm volatile("move #$2700,sr");
 	if (REG_VERSION_B & REG_VERSION_TMSS)
 		REG_TMSS_L = 'SEGA';
+
+	// Clear BSS
+	char *b = _bstart;
+	while (b < _bend)
+		*b++ = 0;
+
 	uint8_t flags = REG_VERSION_B;
 	video_init(PLANE_SIZE_64_32);
 	// asm volatile("move #$2000,sr");
