@@ -44,3 +44,9 @@ void video_upload_bitmap_font(const uint8_t *bitmap,uint32_t count,uint8_t c0,ui
 		VDP_DATA_L = x;
 	} while (--count);
 }
+
+void video_draw_string(uint16_t addr,uint16_t attrib,const char *s) {
+	video_set_vram_write_addr(addr);
+	while (*s)
+		VDP_DATA_W = *s++ | attrib;
+}

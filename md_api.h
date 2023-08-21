@@ -14,7 +14,7 @@ typedef unsigned int uint32_t;
 #define REG_VERSION_NTSC	0x00
 #define REG_VERSION_PAL		0x40
 #define REG_VERSION_DOMESTIC	0x00
-#define REG_VERSION_OVERSEA	0x80
+#define REG_VERSION_OVERSEAS	0x80
 
 #define REG_TMSS_L		(*(uint32_t*)0xA14000)
 
@@ -57,3 +57,12 @@ extern void video_upload_bitmap_font(const uint8_t*,uint32_t count,uint8_t c0,ui
 inline void video_set_vram_write_addr(uint16_t addr) {
 	VDP_CTRL_L = 0x40000000 | ((addr & 0x3FFF) << 16) | (addr >> 14);
 }
+extern void video_draw_string(uint16_t addr,uint16_t attributes,const char *s);
+// These assume 64 tiles wide
+inline uint16_t video_plane_a_addr(uint8_t x,uint8_t y) {
+	return y * 128 + x * 2 + 0xC000;
+}
+inline uint16_t video_plane_b_addr(uint8_t x,uint8_t y) {
+	return y * 128 + x * 2 + 0xE000;
+}
+
