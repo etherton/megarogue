@@ -22,6 +22,14 @@ void video_init(uint8_t plane_size) {
 	video_plane_shift = 6 + (plane_size & 3);
 	if (video_plane_shift==9)
 		video_plane_shift=8;
+	// Clear first long of VSRAM
+	VDP_CTRL_L = 0x40000010;
+	VDP_DATA_L = 0;
+	// Clear all of VRAM
+	video_set_vram_write_addr(0);
+	int c = 16384;
+	while (c--)
+		VDP_DATA_L = 0;
 }
 
 void video_enable() {
