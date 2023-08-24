@@ -58,6 +58,7 @@ void _start() {
 
 	uint8_t flags = REG_VERSION_B;
 	video_init(PLANE_SIZE_64_32);
+	video_config_window(RIGHT_OF_X_SPLIT | 16,0);
 	// asm volatile("move #$2000,sr");
 	video_load_palette(0, pal, 32);
 	// video_set_palette_entry(0, 0x000E);
@@ -87,8 +88,16 @@ void _start() {
 	VDP_DATA_W = 'g';
 	VDP_DATA_W = 'a'; */
 
+	video_draw_string(video_plane_b_addr(0,0),0,"====----====----====----====----");
 	video_draw_string(video_plane_a_addr(10,10),0,flags & REG_VERSION_PAL?"PAL ":"NTSC");
 	video_draw_string(video_plane_a_addr(10,12),0,flags & REG_VERSION_OVERSEAS?"OVERSEAS":"DOMESTIC");
+
+	video_draw_string(video_plane_w_addr(32,0),0,"STR:18");
+	video_draw_string(video_plane_w_addr(32,1),0,"DEX:11");
+	video_draw_string(video_plane_w_addr(32,2),0,"CON:12");
+	video_draw_string(video_plane_w_addr(32,3),0,"WIS:08");
+	video_draw_string(video_plane_w_addr(32,4),0,"INT:09");
+	video_draw_string(video_plane_w_addr(32,6),0,"HP:010");
 
 	// Plane B, Palette 1
 	/*video_set_vram_write_addr(0xE000 + 62);
@@ -118,8 +127,8 @@ void _start() {
 
 		video_set_vram_write_addr(0xF000);
 		VDP_DATA_W = 128 + 50 + ((elapsed >> 10) & 127);
-		VDP_DATA_W = 0x0F00;
-		VDP_DATA_W = 0x3000 | 'A'; 
+		VDP_DATA_W = 0x0A00;
+		VDP_DATA_W = 0x2000 | 'A'; 
 		VDP_DATA_W = 128 + 20 + ((elapsed >> 9) & 255);
 
 		uint16_t pad0 = joypad_read(0), pad1 = joypad_read(1);

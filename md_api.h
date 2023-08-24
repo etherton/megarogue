@@ -59,6 +59,11 @@ extern uint16_t joypad_read(int which);
 
 extern uint8_t video_plane_shift;
 extern void video_init(uint8_t plane_size /*PLANE_SIZE_...*/);
+#define LEFT_OF_X_SPLIT 0x00
+#define RIGHT_OF_X_SPLIT 0x80
+#define ABOVE_Y_SPLIT	0x00
+#define BELOW_Y_SPLIT	0x80
+extern void video_config_window(uint8_t h,uint8_t v);
 extern void video_enable();
 extern void video_load_palette(uint8_t base,const uint16_t* values,uint8_t count);
 extern void video_set_palette_entry(uint8_t base,uint16_t entry);
@@ -71,6 +76,9 @@ extern void video_draw_string(uint16_t addr,uint16_t attributes,const char *s);
 // These assume 64 tiles wide
 inline uint16_t video_plane_a_addr(uint8_t x,uint8_t y) {
 	return (y << video_plane_shift) + x + x + 0xC000;
+}
+inline uint16_t video_plane_w_addr(uint8_t x,uint8_t y) {
+	return (y << video_plane_shift) + x + x + 0x2000;
 }
 inline uint16_t video_plane_b_addr(uint8_t x,uint8_t y) {
 	return (y << video_plane_shift) + x + x + 0xE000;

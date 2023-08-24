@@ -48,11 +48,15 @@ SECTIONS
     header.o(.rodata)
     *(.text)
     . = ALIGN(0x4);
-    *(.rodata*)
-    *(.lit)
     _etext = .;
   } > rom
   _stext = SIZEOF (.text);
+
+  .rodata (_stext):
+   {
+    *(.rodata*)
+    *(.lit)
+   } > rom
 
   .data 0x00ff0000 :
   AT ( ADDR (.text) + SIZEOF (.text) )

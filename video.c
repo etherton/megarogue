@@ -8,6 +8,7 @@ void video_init(uint8_t plane_size) {
 	VDP_CTRL_W = 0x8004; // No HBI, no HV latch
 	VDP_CTRL_W = 0x8134; // No display, VBI, DMA OK, V28
 	VDP_CTRL_W = 0x8230; // Plane A: $C000
+	VDP_CTRL_W = 0x8300 | (0x2000 >> 10); // 34; // Window:  $D000
 	VDP_CTRL_W = 0x8407; // Plane B: $E000
 	VDP_CTRL_W = 0x8578; // Sprites: $F000
 	VDP_CTRL_W = 0x8700; // BG color: palette 0, index 0
@@ -30,6 +31,11 @@ void video_init(uint8_t plane_size) {
 	int c = 16384;
 	while (c--)
 		VDP_DATA_L = 0;
+}
+
+void video_config_window(uint8_t h,uint8_t v) {
+	VDP_CTRL_W = 0x9100 | h;
+	VDP_CTRL_W = 0x9200 | v;
 }
 
 void video_enable() {
