@@ -42,12 +42,18 @@ void video_enable() {
 	VDP_CTRL_W = 0x8174;	// Enable display
 }
 
-void video_load_palette(uint8_t baseAddr,const uint16_t *palette,uint8_t count) {
-	md_assert(baseAddr < 64);
-	VDP_CTRL_L = 0xC0000000 + (baseAddr << 16);
-	for (;count>=2; count-=2,palette+=2)
-		VDP_DATA_L = *(uint32_t*) palette;
-	VDP_DATA_W = *palette;
+void video_upload_palette(uint8_t baseAddr,const uint16_t *palette) {
+	md_assert(baseAddr < 4);
+	const uint32_t *p = (const uint32_t*) palette;
+	VDP_CTRL_L = 0xC0000000 + (baseAddr << 21);
+	VDP_DATA_L = p[0];
+	VDP_DATA_L = p[1];
+	VDP_DATA_L = p[2];
+	VDP_DATA_L = p[3];
+	VDP_DATA_L = p[4];
+	VDP_DATA_L = p[5];
+	VDP_DATA_L = p[6];
+	VDP_DATA_L = p[7];
 }
 
 void video_set_palette_entry(uint8_t baseAddr,uint16_t pe) {

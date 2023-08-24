@@ -3,15 +3,21 @@
 #include <stdint.h>
 
 int main(int argc,char **argv) {
-	if (argc<2) return 1;
+	if (argc<2) { 
+		fprintf(stderr,"missing filename\n"); 
+		return 1; 
+	}
 	FILE *f = fopen(argv[1],"rb+");
-	if (!f) return 1;
+	if (!f) { 
+		fprintf(stderr,"open '%s' failed\n",argv[1]); 
+		return 1; 
+	}
 	fseek(f,0,SEEK_END);
 	size_t size = ftell(f);
 	fseek(f,0,SEEK_SET);
-	size_t rounded = size;
-	while (rounded & (rounded-1))
-		++rounded;
+	size_t rounded = 4096;
+	while (rounded < size)
+		rounded <<= 1;
 	printf("rom size is %zu, rounded up to %zu\n",size,rounded);
 	uint8_t *rom = new uint8_t[rounded];
 	memset(rom,0,rounded);
