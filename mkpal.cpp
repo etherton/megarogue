@@ -7,13 +7,18 @@
 #include "char24.c"
 #define CONVERT char24
 
-int main(int,char**) {
+int main(int argc,char** argv) {
+	if (argc<2)
+		return 1;
+	FILE *cfile = fopen(argv[1],"w");
+	if (!cfile)
+		return 1;
+
 	std::map<uint16_t,uint8_t> gp;
 	std::vector<std::map<uint16_t,uint8_t>> palettes;
 	std::map<std::pair<int,int>,size_t> palette_map;
 	const uint16_t TRANSP = 0x111; // impossible color
 	uint8_t gnc = 0, dups = 0;
-	FILE *cfile = fopen("tiles.c","w");
 	fprintf(cfile,"#include \"md_api.h\"\n");
 	int rowstep=24, colstep=24;
 	int inset=24;
