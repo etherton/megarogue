@@ -73,6 +73,14 @@ int main(int argc,char** argv) {
 	}
 	printf("total %d colors\n",gnc);
 	printf("%d dupes\n",dups);
+
+	fprintf(cfile,"const struct directory { const uint32_t *tilePtr; const uint16_t *palPtr; } tile_directory[] = {\n");
+	for (int row=inset; row<CONVERT.height-3*inset; row+=rowstep) {
+		for (int col=inset; col<CONVERT.width-inset; col+=colstep) {
+			fprintf(cfile,"\t{tiles_%d_%d, palette_%d_%d },\n",row,col,row,col);
+		}
+	}
+	fprintf(cfile,"};\nextern const uint16_t tile_directory_count = sizeof(tile_directory) / sizeof(tile_directory[0]);\n");
 	fclose(cfile);
 
 #if 0

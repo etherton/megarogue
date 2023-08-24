@@ -11,8 +11,8 @@ volatile uint8_t vbi;
 
 const uint16_t pal[16] = { 0x0000, 0x0222, 0x0444, 0x0666, 0x0888, 0x0AAA, 0x0CCC, 0x0EEE, 0x0000, 0x000E, 0x00E0, 0x00EE, 0x0E00, 0x0E0E, 0x0EE0, 0x0EEE, };
 
-extern uint32_t tiles_24_24[];
-extern uint16_t palette_24_24[];
+extern const struct directory { const uint32_t *tilePtr; const uint16_t *palPtr; } tile_directory[];
+extern const uint16_t tile_directory_count;
 
 void interrupt_h() {
 	asm("rte");
@@ -23,6 +23,11 @@ void interrupt_v() {
 	asm("move.b #1, vbi");
 	asm("rte");
 	// asm(".short 0x4E73"); // RTE - 0100 1110 0111 0011
+}
+
+inline uint16_t modulo(uint32_t a,uint16_t b) {
+	asm("divu.w %1, %0" : "+r" (a) : "r" (b));
+	return (uint16_t)(a>>16);
 }
 
 static void draw_pad(const char *tag,uint8_t x,uint8_t y,uint16_t attr,uint16_t bits) {
@@ -99,11 +104,6 @@ void _start() {
 	video_draw_string(video_plane_w_addr(32,4),0,"INT:09");
 	video_draw_string(video_plane_w_addr(32,6),0,"HP:010"); */
 
-	video_set_vram_write_addr(0x2000);
-	for (int i=0; i<9*2*8; i++)
-		VDP_DATA_L = tiles_24_24[i];
-	video_upload_palette(1,palette_24_24);
-
 	// Plane B, Palette 1
 	/*video_set_vram_write_addr(0xE000 + 62);
 	VDP_DATA_W = 'X' | 0x2000; //  | 0x8000;
@@ -131,10 +131,13 @@ void _start() {
 		video_draw_string(video_plane_a_addr(10,14),0x2000,timer);
 
 		video_set_vram_write_addr(0xF000);
-		VDP_DATA_W = 128 + 50 + ((elapsed >> 10) & 127);
+		VDP_DATA_W = 128 + 50 + ((elapsed >> 13) & 127);
 		VDP_DATA_W = 0x0A00;
-		VDP_DATA_W = NT_PALETTE_1 | (0x2000/32);
-		VDP_DATA_W = 128 + 20 + ((elapsed >> 9) & 255);
+		VDP_DATA_W = NT_PALETTE_1 | 256;
+		VDP_DATA_W = 128 + 20 + ((elapsed >> 12) & 255);
+		uint16_t ti = modulo(elapsed >> 12, tile_directory_count);
+		video_upload_palette(1,tile_directory[ti].palPtr);
+		video_upload_sprite(0x2000,tile_directory[ti].tilePtr,9);
 
 		uint16_t pad0 = joypad_read(0), pad1 = joypad_read(1);
 		if (pad0 & JOYPAD_START)

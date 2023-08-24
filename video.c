@@ -56,6 +56,21 @@ void video_upload_palette(uint8_t baseAddr,const uint16_t *palette) {
 	VDP_DATA_L = p[7];
 }
 
+void video_upload_sprite(const uint16_t addr,const uint32_t *data,uint32_t count) {
+	video_set_vram_write_addr(addr);
+	while (count--) {
+		VDP_DATA_L = data[0];
+		VDP_DATA_L = data[1];
+		VDP_DATA_L = data[2];
+		VDP_DATA_L = data[3];
+		VDP_DATA_L = data[4];
+		VDP_DATA_L = data[5];
+		VDP_DATA_L = data[6];
+		VDP_DATA_L = data[7];
+		data+=8;
+	}
+}
+
 void video_set_palette_entry(uint8_t baseAddr,uint16_t pe) {
 	md_assert(baseAddr < 64);
 	VDP_CTRL_L = 0xC0000000 + (baseAddr << 17);
