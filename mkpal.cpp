@@ -4,40 +4,72 @@
 #include <string>
 #include <stdio.h>
 
-#include "char24.c"
-#define CONVERT char24
+#include "targa_header.h"
 
 int main(int argc,char** argv) {
-	if (argc<2)
+	if (argc<12) {
+		fprintf(stderr,"args: tga_name c_name c_sym start_x start_y cell_width cell_height cells_across cells_down palette_group_cell_width palette_group_cell_height\n");
 		return 1;
-	FILE *cfile = fopen(argv[1],"w");
+	}
+	int start_x = atoi(argv[4]), start_y = atoi(argv[5]), cell_width = atoi(argv[6]), cell_height = atoi(argv[7]), 
+		cells_across = atoi(argv[8]), cells_down = atoi(argv[9]), 
+		palette_group_cell_width = atoi(argv[10]), palette_group_cell_height = atoi(argv[11]);
+		
+	FILE *tga = fopen(argv[1],"rb"); 
+	if (!tga) {
+		fprintf(stderr,"unable to open tga '%s'\n",argv[1]);
+		return 1;
+	}
+
+	targa_header hdr;
+	fread(&hdr,sizeof(hdr),1,tga);
+	if (!is_valid_targa_header(&hdr)) {
+		fprintf(stderr,"file '%s' must be uncompressed (no RLE) 32bpp with top left origin\n",argv[1]);
+		return 1;
+	}
+	uint32_t sizeBytes = (hdr.width * hdr.height * hdr.pixelDepth) >> 3;
+	uint8_t *pixel_data = new uint8_t[sizeBytes];
+	if (fread(pixel_data,1,sizeBytes,tga) != sizeBytes) {
+		fprintf(stderr,"short read on tga file\n");
+		return 1;
+	}
+	fclose(tga);
+	if (hdr.width < start_x + cells_across * cell_width) {
+		fprintf(stderr,"image is only %d wide but needs to be at least %d\n",hdr.width,start_x + cells_across * cell_width);
+		return 1;
+	}
+	if (hdr.height < start_y + cells_down * cell_height) {
+		fprintf(stderr,"image is only %d tall but needs to be at least %d\n",hdr.height,start_y + cells_down * cell_height);
+		return 1;
+	}
+	FILE *cfile = fopen(argv[2],"w");
 	if (!cfile)
 		return 1;
+	const char *c_sym = argv[3];
 
 	std::map<uint16_t,uint8_t> gp;
 	std::vector<std::map<uint16_t,uint8_t>> palettes;
 	std::map<std::pair<int,int>,size_t> palette_map;
 	const uint16_t TRANSP = 0x111; // impossible color
+	int width=hdr.width, height=hdr.height;
 	uint8_t gnc = 0, dups = 0;
 	fprintf(cfile,"#include \"md_api.h\"\n");
-	int rowstep=24, colstep=24;
-	int inset=24;
-	for (int row=inset; row<CONVERT.height-3*inset; row+=rowstep) {
-		for (int col=inset; col<CONVERT.width-inset; col+=colstep) {
+	for (int row=start_y; row<start_y+cell_height*cells_down; row+=cell_height) {
+		for (int col=start_x; col<start_x+cell_width*cells_across; col+=cell_width) {
 			std::map<uint16_t,uint8_t> p;		
 			p[TRANSP] = 0;
 			uint8_t nc = 0;
-			fprintf(cfile,"const uint32_t tiles_%d_%d[] = {\n",row,col);
+			fprintf(cfile,"const uint32_t %s_tiles_%d_%d[] = {\n",c_sym,row,col);
 			uint16_t paletteArray[32] = { TRANSP };
-			for (int xx=0; xx<colstep; xx+=8) {
-				for (int yy=0; yy<rowstep; yy+=8) {
+			for (int xx=0; xx<cell_width; xx+=8) {
+				for (int yy=0; yy<cell_height; yy+=8) {
 					for (int y=0; y<8; y++) {
 						uint32_t pix = 0;
 						for (int x=0; x<8; x++) {
-							int r = CONVERT.pixel_data[(CONVERT.width*(row+yy+y)+(col+xx+x))*4+0];
-							int g = CONVERT.pixel_data[(CONVERT.width*(row+yy+y)+(col+xx+x))*4+1];
-							int b = CONVERT.pixel_data[(CONVERT.width*(row+yy+y)+(col+xx+x))*4+2];
-							int a = CONVERT.pixel_data[(CONVERT.width*(row+yy+y)+(col+xx+x))*4+3];
+							int r = pixel_data[(width*(row+yy+y)+(col+xx+x))*4+2];
+							int g = pixel_data[(width*(row+yy+y)+(col+xx+x))*4+1];
+							int b = pixel_data[(width*(row+yy+y)+(col+xx+x))*4+0];
+							int a = pixel_data[(width*(row+yy+y)+(col+xx+x))*4+3];
 							int packed;
 							auto rnd = [](int c,int s) {
 								/* if (c < 240) 
@@ -62,7 +94,7 @@ int main(int argc,char** argv) {
 					fprintf(cfile,"\n");
 				}
 			}
-			fprintf(cfile,"};\nconst uint16_t palette_%d_%d[16] = {",row,col);
+			fprintf(cfile,"};\nconst uint16_t %s_palette_%d_%d[16] = {",c_sym,row,col);
 			for (int i=0; i<16; i++) fprintf(cfile,"0x%03x,",paletteArray[i]);
 			fprintf(cfile,"};\n\n");
 			printf("block %d,%d has %d colors: ",row,col,nc);
@@ -74,13 +106,13 @@ int main(int argc,char** argv) {
 	printf("total %d colors\n",gnc);
 	printf("%d dupes\n",dups);
 
-	fprintf(cfile,"const struct directory { const uint32_t *tilePtr; const uint16_t *palPtr; } tile_directory[] = {\n");
-	for (int row=inset; row<CONVERT.height-3*inset; row+=rowstep) {
-		for (int col=inset; col<CONVERT.width-inset; col+=colstep) {
-			fprintf(cfile,"\t{tiles_%d_%d, palette_%d_%d },\n",row,col,row,col);
+	fprintf(cfile,"const struct directory { const uint32_t *tilePtr; const uint16_t *palPtr; } %s_directory[] = {\n",c_sym);
+	for (int row=start_y; row<start_y+cells_down*cell_height; row+=cell_height) {
+		for (int col=start_x; col<start_x+cells_across*cell_width; col+=cell_width) {
+			fprintf(cfile,"\t{%s_tiles_%d_%d, %s_palette_%d_%d },\n",c_sym,row,col,c_sym,row,col);
 		}
 	}
-	fprintf(cfile,"};\nextern const uint16_t tile_directory_count = sizeof(tile_directory) / sizeof(tile_directory[0]);\n");
+	fprintf(cfile,"};\nconst uint16_t %s_directory_count = sizeof(%s_directory) / sizeof(%s_directory[0]);\n",c_sym,c_sym,c_sym);
 	fclose(cfile);
 
 #if 0

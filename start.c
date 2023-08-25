@@ -11,8 +11,8 @@ volatile uint8_t vbi;
 
 const uint16_t pal[16] = { 0x0000, 0x0222, 0x0444, 0x0666, 0x0888, 0x0AAA, 0x0CCC, 0x0EEE, 0x0000, 0x000E, 0x00E0, 0x00EE, 0x0E00, 0x0E0E, 0x0EE0, 0x0EEE, };
 
-extern const struct directory { const uint32_t *tilePtr; const uint16_t *palPtr; } tile_directory[];
-extern const uint16_t tile_directory_count;
+extern const struct directory { const uint32_t *tilePtr; const uint16_t *palPtr; } char_directory[];
+extern const uint16_t char_directory_count;
 
 void interrupt_h() {
 	asm("rte");
@@ -135,9 +135,9 @@ void _start() {
 		VDP_DATA_W = 0x0A00;
 		VDP_DATA_W = NT_PALETTE_1 | 256;
 		VDP_DATA_W = 128 + 20 + ((elapsed >> 12) & 255);
-		uint16_t ti = modulo(elapsed >> 12, tile_directory_count);
-		video_upload_palette(1,tile_directory[ti].palPtr);
-		video_upload_sprite(0x2000,tile_directory[ti].tilePtr,9);
+		uint16_t ti = modulo(elapsed >> 12, char_directory_count);
+		video_upload_palette(1,char_directory[ti].palPtr);
+		video_upload_sprite(0x2000,char_directory[ti].tilePtr,9);
 
 		uint16_t pad0 = joypad_read(0), pad1 = joypad_read(1);
 		if (pad0 & JOYPAD_START)
