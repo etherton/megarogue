@@ -66,7 +66,7 @@ extern void video_init(uint8_t plane_size /*PLANE_SIZE_...*/);
 extern void video_config_window(uint8_t h,uint8_t v);
 extern void video_enable();
 extern void video_upload_palette(uint8_t slot,const uint16_t* sixteen_values);
-extern void video_upload_sprite(uint16_t baseAddr,const uint32_t *tiles,uint32_t tileCount);
+extern void video_upload_sprite(const uint32_t *tiles,uint32_t tileCount);
 extern void video_set_palette_entry(uint8_t base,uint16_t entry);
 extern void video_upload_bitmap_font(const uint8_t*,uint32_t count,uint8_t c0,uint8_t c1);
 

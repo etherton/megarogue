@@ -9,10 +9,12 @@ void crash() {
 
 volatile uint8_t vbi;
 
-const uint16_t pal[16] = { 0x0000, 0x0222, 0x0444, 0x0666, 0x0888, 0x0AAA, 0x0CCC, 0x0EEE, 0x0000, 0x000E, 0x00E0, 0x00EE, 0x0E00, 0x0E0E, 0x0EE0, 0x0EEE, };
+const uint16_t pal[16] = { 0x0E00, 0x0222, 0x0444, 0x0666, 0x0888, 0x0AAA, 0x0CCC, 0x0EEE, 0x0000, 0x000E, 0x00E0, 0x00EE, 0x0E00, 0x0E0E, 0x0EE0, 0x0EEE, };
 
-extern const struct directory { const uint32_t *tilePtr; const uint16_t *palPtr; } char_directory[];
+struct directory { const uint32_t *tilePtr; const uint16_t *palPtr; };
+extern const struct directory char_directory[], bg_directory[];;
 extern const uint16_t char_directory_count;
+extern const uint16_t bg_directory_count;
 
 void interrupt_h() {
 	asm("rte");
@@ -32,19 +34,19 @@ inline uint16_t modulo(uint32_t a,uint16_t b) {
 
 static void draw_pad(const char *tag,uint8_t x,uint8_t y,uint16_t attr,uint16_t bits) {
 	video_draw_string(video_plane_a_addr(x,y),attr,tag);
-	VDP_DATA_W = bits & JOYPAD_UP? 'U' : ' ';
-	VDP_DATA_W = bits & JOYPAD_DOWN? 'D' : ' ';
-	VDP_DATA_W = bits & JOYPAD_LEFT? 'L' : ' ';
-	VDP_DATA_W = bits & JOYPAD_RIGHT? 'R' : ' ';
-	VDP_DATA_W = bits & JOYPAD_A? 'A' : ' ';
-	VDP_DATA_W = bits & JOYPAD_B? 'B' : ' ';
-	VDP_DATA_W = bits & JOYPAD_C? 'C' : ' ';
-	VDP_DATA_W = bits & JOYPAD_START? 'S' : ' ';
-	VDP_DATA_W = bits & JOYPAD_X? 'X' : ' ';
-	VDP_DATA_W = bits & JOYPAD_Y? 'Y' : ' ';
-	VDP_DATA_W = bits & JOYPAD_Z? 'Z' : ' ';
-	VDP_DATA_W = bits & JOYPAD_MODE? 'M' : ' ';
-	VDP_DATA_W = bits & JOYPAD_6? '6' : '3';
+	VDP_DATA_W = attr | (bits & JOYPAD_UP? 'U' : ' ');
+	VDP_DATA_W = attr | (bits & JOYPAD_DOWN? 'D' : ' ');
+	VDP_DATA_W = attr | (bits & JOYPAD_LEFT? 'L' : ' ');
+	VDP_DATA_W = attr | (bits & JOYPAD_RIGHT? 'R' : ' ');
+	VDP_DATA_W = attr | (bits & JOYPAD_A? 'A' : ' ');
+	VDP_DATA_W = attr | (bits & JOYPAD_B? 'B' : ' ');
+	VDP_DATA_W = attr | (bits & JOYPAD_C? 'C' : ' ');
+	VDP_DATA_W = attr | (bits & JOYPAD_START? 'S' : ' ');
+	VDP_DATA_W = attr | (bits & JOYPAD_X? 'X' : ' ');
+	VDP_DATA_W = attr | (bits & JOYPAD_Y? 'Y' : ' ');
+	VDP_DATA_W = attr | (bits & JOYPAD_Z? 'Z' : ' ');
+	VDP_DATA_W = attr | (bits & JOYPAD_MODE? 'M' : ' ');
+	VDP_DATA_W = attr | (bits & JOYPAD_6? '6' : '3');
 }
 
 extern char _bstart[], _bend[];
@@ -86,6 +88,11 @@ void _start() {
 
 	video_upload_bitmap_font(&font8x8_basic[0][0],8 * 128,0x0,0x7);
 
+	video_set_vram_write_addr(0x4000);
+	for (int i=0; i<bg_directory_count; i++)
+		video_upload_sprite(bg_directory[i].tilePtr,9);
+	video_upload_palette(3,bg_directory[0].palPtr);
+
 	// Plane A, Palette 0
 	/* video_set_vram_write_addr(0xC000 + 60);
 	VDP_DATA_W = 'S';
@@ -93,9 +100,28 @@ void _start() {
 	VDP_DATA_W = 'g';
 	VDP_DATA_W = 'a'; */
 
+	for (int y=0; y<3; y++) {
+		for (int x=0; x<9; x++) {
+			int ch = 512 + x*9 + y * 81;
+			video_set_vram_write_addr(video_plane_b_addr(x*3,y*3+10));
+			VDP_DATA_W = NT_PALETTE_3 | (ch + 0);
+			VDP_DATA_W = NT_PALETTE_3 | (ch + 3);
+			VDP_DATA_W = NT_PALETTE_3 | (ch + 6);
+			video_set_vram_write_addr(video_plane_b_addr(x*3,y*3+11));
+			VDP_DATA_W = NT_PALETTE_3 | (ch + 1);
+			VDP_DATA_W = NT_PALETTE_3 | (ch + 4);
+			VDP_DATA_W = NT_PALETTE_3 | (ch + 7);
+			video_set_vram_write_addr(video_plane_b_addr(x*3,y*3+12));
+			VDP_DATA_W = NT_PALETTE_3 | (ch + 2);
+			VDP_DATA_W = NT_PALETTE_3 | (ch + 5);
+			VDP_DATA_W = NT_PALETTE_3 | (ch + 8);
+		}
+	}
+
+	const uint16_t text_attr = NT_PRIORITY | NT_PALETTE_0;
 	// video_draw_string(video_plane_b_addr(0,0),0,"====----====----====----====----");
-	video_draw_string(video_plane_a_addr(10,10),0,flags & REG_VERSION_PAL?"PAL ":"NTSC");
-	video_draw_string(video_plane_a_addr(10,12),0,flags & REG_VERSION_OVERSEAS?"OVERSEAS":"DOMESTIC");
+	video_draw_string(video_plane_a_addr(10,10),text_attr,flags & REG_VERSION_PAL?"PAL ":"NTSC");
+	video_draw_string(video_plane_a_addr(10,12),text_attr,flags & REG_VERSION_OVERSEAS?"OVERSEAS":"DOMESTIC");
 
 	/* video_draw_string(video_plane_w_addr(32,0),0,"STR:18");
 	video_draw_string(video_plane_w_addr(32,1),0,"DEX:11");
@@ -128,7 +154,7 @@ void _start() {
 
 		while (!vbi);
 		vbi = 0;
-		video_draw_string(video_plane_a_addr(10,14),0x2000,timer);
+		video_draw_string(video_plane_a_addr(10,14),text_attr,timer);
 
 		video_set_vram_write_addr(0xF000);
 		VDP_DATA_W = 128 + 50 + ((elapsed >> 13) & 127);
@@ -137,13 +163,14 @@ void _start() {
 		VDP_DATA_W = 128 + 20 + ((elapsed >> 12) & 255);
 		uint16_t ti = modulo(elapsed >> 12, char_directory_count);
 		video_upload_palette(1,char_directory[ti].palPtr);
-		video_upload_sprite(0x2000,char_directory[ti].tilePtr,9);
+		video_set_vram_write_addr(0x2000);
+		video_upload_sprite(char_directory[ti].tilePtr,9);
 
 		uint16_t pad0 = joypad_read(0), pad1 = joypad_read(1);
 		if (pad0 & JOYPAD_START)
 			elapsed = 0;
-		draw_pad("ONE ", 4,16,0, pad0);
-		draw_pad("TWO ", 4,18,0, pad1);
+		draw_pad("ONE ", 4,16,text_attr, pad0);
+		draw_pad("TWO ", 4,18,text_attr, pad1);
 		// video_set_palette_entry(1, n & 0xEEE);
 		// n += 0x010101;
 	}

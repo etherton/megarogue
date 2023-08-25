@@ -56,8 +56,7 @@ void video_upload_palette(uint8_t baseAddr,const uint16_t *palette) {
 	VDP_DATA_L = p[7];
 }
 
-void video_upload_sprite(const uint16_t addr,const uint32_t *data,uint32_t count) {
-	video_set_vram_write_addr(addr);
+void video_upload_sprite(const uint32_t *data,uint32_t count) {
 	while (count--) {
 		VDP_DATA_L = data[0];
 		VDP_DATA_L = data[1];

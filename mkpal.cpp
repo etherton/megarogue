@@ -1,5 +1,3 @@
-/* GIMP RGBA C-Source image dump (tiny_dungeon_monsters.c) */
-
 #include <map>
 #include <string>
 #include <stdio.h>
@@ -7,13 +5,14 @@
 #include "targa_header.h"
 
 int main(int argc,char** argv) {
-	if (argc<12) {
-		fprintf(stderr,"args: tga_name c_name c_sym start_x start_y cell_width cell_height cells_across cells_down palette_group_cell_width palette_group_cell_height\n");
+	if (argc<13) {
+		fprintf(stderr,"args: tga_name c_name c_sym start_x start_y cell_width cell_height cells_across cells_down palette_group_cell_width palette_group_cell_height color_bits_per_channel\n");
 		return 1;
 	}
 	int start_x = atoi(argv[4]), start_y = atoi(argv[5]), cell_width = atoi(argv[6]), cell_height = atoi(argv[7]), 
 		cells_across = atoi(argv[8]), cells_down = atoi(argv[9]), 
-		palette_group_cell_width = atoi(argv[10]), palette_group_cell_height = atoi(argv[11]);
+		palette_group_cell_width = atoi(argv[10]), palette_group_cell_height = atoi(argv[11]),
+		color_bits_per_channel = atoi(argv[12]);
 		
 	FILE *tga = fopen(argv[1],"rb"); 
 	if (!tga) {
@@ -71,10 +70,8 @@ int main(int argc,char** argv) {
 							int b = pixel_data[(width*(row+yy+y)+(col+xx+x))*4+0];
 							int a = pixel_data[(width*(row+yy+y)+(col+xx+x))*4+3];
 							int packed;
-							auto rnd = [](int c,int s) {
-								/* if (c < 240) 
-									c = c+16; */
-								return s!=99? (c>>6) << (s+1) : (c>>5) << (s + 1);
+							auto rnd = [&](int c,int s) {
+								return (c>>(8-color_bits_per_channel)) << (s + 4 - color_bits_per_channel);
 							};
 							if (a < 128)
 								packed=TRANSP;
