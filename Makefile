@@ -14,17 +14,17 @@ char_tiles.c: mkpal
 	./mkpal oryx_16bit_fantasy_creatures_trans.tga char_tiles.c char 24 24 24 24 18 22 1 2 2
 
 bg_tiles.c: mkpal
-	./mkpal oryx_16bit_fantasy_world_trans.tga bg_tiles.c bg 24 24 24 24 27 1 27 1 3
+	./mkpal oryx_16bit_fantasy_world_trans.tga bg_tiles.c bg 24 24 24 24 27 23 27 1 3
 
 # brew install rosco-m68k/toolchain/binutils-cross-m68k
 # brew install rosco-m68k/toolchain/gcc-cross-m68k@13  
 # fnotree... stops the compiler from synthesizing non-existent calls to memset/memcpy
 
-megarogue.rom: vectors.c header.c start.c joypad.c video.c char_tiles.c bg_tiles.c fixrom
-	/opt/homebrew/bin/m68k-elf-gcc -DNDEBUG -Wno-multichar -march=68000 -fno-tree-loop-distribute-patterns -fomit-frame-pointer -O1 -c vectors.c header.c start.c joypad.c video.c char_tiles.c bg_tiles.c
-	/opt/homebrew/bin/m68k-elf-ld -T md.script vectors.o header.o start.o video.o joypad.o char_tiles.o bg_tiles.o -o megarogue
-	/opt/homebrew/bin/m68k-elf-objdump --disassemble a.out > megarogue.txt
-	/opt/homebrew/bin/m68k-elf-ld -T md.script --oformat=binary vectors.o header.o start.o video.o joypad.o char_tiles.o bg_tiles.o -o megarogue.rom
+megarogue.rom: vectors.c header.c start.c joypad.c video.c char_tiles.c bg_tiles.c maze.c fixrom
+	/opt/homebrew/bin/m68k-elf-gcc -DNDEBUG -Wno-multichar -march=68000 -fno-tree-loop-distribute-patterns -fomit-frame-pointer -O1 -c vectors.c header.c start.c joypad.c video.c char_tiles.c bg_tiles.c maze.c
+	/opt/homebrew/bin/m68k-elf-ld -T md.script vectors.o header.o start.o video.o joypad.o char_tiles.o bg_tiles.o maze.o -o megarogue
+	/opt/homebrew/bin/m68k-elf-objdump --disassemble megarogue > megarogue.txt
+	/opt/homebrew/bin/m68k-elf-ld -T md.script --oformat=binary vectors.o header.o start.o video.o joypad.o char_tiles.o bg_tiles.o maze.o -o megarogue.rom
 	./fixrom megarogue.rom
 
 run: megarogue.rom

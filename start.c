@@ -1,5 +1,8 @@
 #include "md_api.h"
+#include "md_math.h"
 #include <stddef.h>
+
+#include "maze.h"
 
 #include "font8x8_basic.h"
 
@@ -25,11 +28,6 @@ void interrupt_v() {
 	asm("move.b #1, vbi");
 	asm("rte");
 	// asm(".short 0x4E73"); // RTE - 0100 1110 0111 0011
-}
-
-inline uint16_t modulo(uint32_t a,uint16_t b) {
-	asm("divu.w %1, %0" : "+r" (a) : "r" (b));
-	return (uint16_t)(a>>16);
 }
 
 static void draw_pad(const char *tag,uint8_t x,uint8_t y,uint16_t attr,uint16_t bits) {
@@ -88,35 +86,12 @@ void _start() {
 
 	video_upload_bitmap_font(&font8x8_basic[0][0],8 * 128,0x0,0x7);
 
-	video_set_vram_write_addr(0x4000);
-	for (int i=0; i<bg_directory_count; i++)
-		video_upload_sprite(bg_directory[i].tilePtr,9);
-	video_upload_palette(3,bg_directory[0].palPtr);
-
 	// Plane A, Palette 0
 	/* video_set_vram_write_addr(0xC000 + 60);
 	VDP_DATA_W = 'S';
 	VDP_DATA_W = 'e';
 	VDP_DATA_W = 'g';
 	VDP_DATA_W = 'a'; */
-
-	for (int y=0; y<3; y++) {
-		for (int x=0; x<9; x++) {
-			int ch = 512 + x*9 + y * 81;
-			video_set_vram_write_addr(video_plane_b_addr(x*3,y*3+10));
-			VDP_DATA_W = NT_PALETTE_3 | (ch + 0);
-			VDP_DATA_W = NT_PALETTE_3 | (ch + 3);
-			VDP_DATA_W = NT_PALETTE_3 | (ch + 6);
-			video_set_vram_write_addr(video_plane_b_addr(x*3,y*3+11));
-			VDP_DATA_W = NT_PALETTE_3 | (ch + 1);
-			VDP_DATA_W = NT_PALETTE_3 | (ch + 4);
-			VDP_DATA_W = NT_PALETTE_3 | (ch + 7);
-			video_set_vram_write_addr(video_plane_b_addr(x*3,y*3+12));
-			VDP_DATA_W = NT_PALETTE_3 | (ch + 2);
-			VDP_DATA_W = NT_PALETTE_3 | (ch + 5);
-			VDP_DATA_W = NT_PALETTE_3 | (ch + 8);
-		}
-	}
 
 	const uint16_t text_attr = NT_PRIORITY | NT_PALETTE_0;
 	// video_draw_string(video_plane_b_addr(0,0),0,"====----====----====----====----");
@@ -134,6 +109,14 @@ void _start() {
 	/*video_set_vram_write_addr(0xE000 + 62);
 	VDP_DATA_W = 'X' | 0x2000; //  | 0x8000;
 	*/
+	
+	video_set_vram_write_addr(0x4000);
+	for (int i=0; i<27; i++)
+		video_upload_sprite(bg_directory[i].tilePtr,9);
+	video_upload_palette(3,bg_directory[0].palPtr);
+	
+	init_maze();
+	draw_maze(0,0);
 
 	video_enable();
 	asm(".long 0x46FC2000"); // move #0x2000, sr
@@ -141,6 +124,7 @@ void _start() {
 	uint16_t n = 0;
 	uint32_t elapsed = 0;
 	uint32_t step = (flags & REG_VERSION_PAL)? 65536/50 : 65536/60;
+	uint32_t next = 0;
 	while (1) {
 		elapsed += step;
 		char timer[6];
