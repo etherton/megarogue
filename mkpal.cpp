@@ -71,6 +71,7 @@ int main(int argc,char** argv) {
 							int a = pixel_data[(width*(row+yy+y)+(col+xx+x))*4+3];
 							int packed;
 							auto rnd = [&](int c,int s) {
+								if (c < 248) c += 15;
 								return (c>>(8-color_bits_per_channel)) << (s + 4 - color_bits_per_channel);
 							};
 							if (a < 128)
