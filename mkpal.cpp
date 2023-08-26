@@ -53,46 +53,57 @@ int main(int argc,char** argv) {
 	int width=hdr.width, height=hdr.height;
 	uint8_t gnc = 0, dups = 0;
 	fprintf(cfile,"#include \"md_api.h\"\n");
-	for (int row=start_y; row<start_y+cell_height*cells_down; row+=cell_height) {
-		for (int col=start_x; col<start_x+cell_width*cells_across; col+=cell_width) {
+	std::vector<std::string> directory_entries;
+	for (int row=0; row<cells_down; row+=palette_group_cell_height) {
+		for (int col=0; col<cells_across; col+=palette_group_cell_width) {
 			std::map<uint16_t,uint8_t> p;		
+			std::string palette_name = std::string(c_sym) + "_palette_" + std::to_string(row) + "_" + std::to_string(col);
+			uint16_t paletteArray[32] = { TRANSP };
 			p[TRANSP] = 0;
 			uint8_t nc = 0;
-			fprintf(cfile,"const uint32_t %s_tiles_%d_%d[] = {\n",c_sym,row,col);
-			uint16_t paletteArray[32] = { TRANSP };
-			for (int xx=0; xx<cell_width; xx+=8) {
-				for (int yy=0; yy<cell_height; yy+=8) {
-					for (int y=0; y<8; y++) {
-						uint32_t pix = 0;
-						for (int x=0; x<8; x++) {
-							int r = pixel_data[(width*(row+yy+y)+(col+xx+x))*4+2];
-							int g = pixel_data[(width*(row+yy+y)+(col+xx+x))*4+1];
-							int b = pixel_data[(width*(row+yy+y)+(col+xx+x))*4+0];
-							int a = pixel_data[(width*(row+yy+y)+(col+xx+x))*4+3];
-							int packed;
-							auto rnd = [&](int c,int s) {
-								if (c < 248) c += 15;
-								return (c>>(8-color_bits_per_channel)) << (s + 4 - color_bits_per_channel);
-							};
-							if (a < 128)
-								packed=TRANSP;
-							else
-								packed = rnd(b,8) | rnd(g,4) | rnd(r,0);
-							if (p.find(packed) == p.end()) {
-								paletteArray[++nc] = packed;
-								p[packed] = nc;
+			for (int sub_row=0; sub_row<palette_group_cell_height; sub_row++) {
+				for (int sub_col=0; sub_col<palette_group_cell_width; sub_col++) {
+					int base_col = start_x + (col+sub_col) * cell_width, base_row = start_y + (row+sub_row) * cell_height;
+					std::string tile_name = std::string(c_sym) + "_tiles_" + std::to_string(row+sub_row) + "_" + std::to_string(col+sub_col);
+					fprintf(cfile,"const uint32_t %s[] = {\n",tile_name.c_str());
+					directory_entries.push_back(std::string("{ ") + tile_name + ", " + palette_name	+ "},");
+					for (int xx=0; xx<cell_width; xx+=8) {
+						for (int yy=0; yy<cell_height; yy+=8) {
+							for (int y=0; y<8; y++) {
+								uint32_t pix = 0;
+								for (int x=0; x<8; x++) {
+									uint32_t o = (width * (base_row+yy+y) + (base_col+xx+x)) * 4;
+									int r = pixel_data[o+2];
+									int g = pixel_data[o+1];
+									int b = pixel_data[o+0];
+									int a = pixel_data[o+3];
+									int packed;
+									auto rnd = [&](int c,int s) {
+										if (c < 248) c += 15;
+										return (c>>(8-color_bits_per_channel)) << (s + 4 - color_bits_per_channel);
+									};
+									if (a < 128)
+										packed=TRANSP;
+									else
+										packed = rnd(b,8) | rnd(g,4) | rnd(r,0);
+									if (p.find(packed) == p.end()) {
+										paletteArray[++nc] = packed;
+										p[packed] = nc;
+									}
+									pix <<= 4;
+									pix |= (p[packed]);
+									if (gp.find(packed) == gp.end())
+										gp[packed] = ++gnc;
+								}
+								fprintf(cfile,"0x%08x,",pix);
 							}
-							pix <<= 4;
-							pix |= (p[packed]);
-							if (gp.find(packed) == gp.end())
-								gp[packed] = ++gnc;
+							fprintf(cfile,"\n");
 						}
-						fprintf(cfile,"0x%08x,",pix);
 					}
-					fprintf(cfile,"\n");
+					fprintf(cfile,"};\n");
 				}
 			}
-			fprintf(cfile,"};\nconst uint16_t %s_palette_%d_%d[16] = {",c_sym,row,col);
+			fprintf(cfile,"const uint16_t %s[16] = {",palette_name.c_str());
 			for (int i=0; i<16; i++) fprintf(cfile,"0x%03x,",paletteArray[i]);
 			fprintf(cfile,"};\n\n");
 			printf("block %d,%d has %d colors: ",row,col,nc);
@@ -105,11 +116,8 @@ int main(int argc,char** argv) {
 	printf("%d dupes\n",dups);
 
 	fprintf(cfile,"const struct directory { const uint32_t *tilePtr; const uint16_t *palPtr; } %s_directory[] = {\n",c_sym);
-	for (int row=start_y; row<start_y+cells_down*cell_height; row+=cell_height) {
-		for (int col=start_x; col<start_x+cells_across*cell_width; col+=cell_width) {
-			fprintf(cfile,"\t{%s_tiles_%d_%d, %s_palette_%d_%d },\n",c_sym,row,col,c_sym,row,col);
-		}
-	}
+	for (auto &d: directory_entries)
+		fprintf(cfile,"%s\n",d.c_str());
 	fprintf(cfile,"};\nconst uint16_t %s_directory_count = sizeof(%s_directory) / sizeof(%s_directory[0]);\n",c_sym,c_sym,c_sym);
 	fclose(cfile);
 
