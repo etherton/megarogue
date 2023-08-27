@@ -71,6 +71,7 @@ type[0b1111] = 20; // 4 way intersection
 uint8_t maze[SIZ][SIZ/8];
 const uint8_t left[] =  { 0xff, 0x7f, 0x3f, 0x1f, 0x0f, 0x07, 0x03, 0x01 };
 const uint8_t right[] = { 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff };
+const uint8_t bit[] =   { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
 
 void draw_row(int row,int l,int r) {
 	assert(row>=0&&row<SIZ);
@@ -94,7 +95,11 @@ void draw_col(int col,int t,int b) {
 	assert(t>=0);
 	assert(b<SIZ);
 	while (t<=b)
-		maze[t++][col>>3] |= left[col&7] & right[col&7];
+		maze[t++][col>>3] |= bit[col&7];
+}
+
+void unset(int row,int col) {
+	maze[row][col>>3] &= ~bit[col&7];
 }
 
 #if 0
@@ -138,10 +143,14 @@ void make_maze(int axis,int start,int stop,int otherStart,int otherStop) {
 	if (stop-start <= 5)
 		return;
 	int split = start + 2 + Random(stop - start - 3);
-	if (axis & 1)
+	if (axis & 1) {
 		draw_row(split,otherStart,otherStop);
-	else
+		unset(split,(otherStart + otherStop)>>1);
+	}
+	else {
 		draw_col(split,otherStart,otherStop);
+		unset((otherStart + otherStop)>>1,split);
+	}
 	if (split - start  > 2 * (otherStop - otherStart))
 		make_maze(axis,start,split,otherStart,otherStop);
 	else
@@ -160,20 +169,26 @@ void init_maze() {
 	make_maze(Random(2),1,SIZ-2,1,SIZ-2);
 }
 
+inline _Bool test(int r,int c) {
+	assert(r>=0&&r<SIZ);
+	assert(c>=0&&c<SIZ);
+	return (maze[r][c>>3] & bit[c&7]) != 0;
+}
+
 void draw_maze(int off_x,int off_y) {
 #if 0
 	for (int row=0; row<24; row++) {
 		video_set_vram_write_addr(video_plane_b_addr(0,row));
 		for (int col=0; col<40; col++)
-			VDP_DATA_W = NT_PALETTE_3 | (maze[row][col>>3] & (0x80 >> (col&7))? 'X' : ' ');
+			VDP_DATA_W = NT_PALETTE_3 | (maze[row][col>>3] & (bit[col&7])? 'X' : ' ');
 	}
 #else
 	for (int row=1; row<=9; row++) {
 		for (int col=1; col<=14; col++) {
-			int bit_u = (maze[row-1][(col+0)>>3] & (128>>((col+0)&7))) != 0? OCC_U : 0;;
-			int bit_d = (maze[row+1][(col+0)>>3] & (128>>((col+0)&7))) != 0? OCC_D : 0;;
-			int bit_l = (maze[row][(col-1)>>3] & (128>>((col-1)&7))) != 0? OCC_L : 0;;
-			int bit_r = (maze[row][(col+1)>>3] & (128>>((col+1)&7))) != 0? OCC_R : 0;;
+			int bit_u = test(row-1,col)? OCC_U : 0;
+			int bit_d = test(row+1,col)? OCC_D : 0;
+			int bit_l = test(row,col-1)? OCC_L : 0;
+			int bit_r = test(row,col+1)? OCC_R : 0;
 			uint16_t tile = dirMap[bit_u | bit_d | bit_l | bit_r] * 9 + 512;
 			if (!(maze[row][col>>3] & (128>>(col&7))))
 				tile = 6 * 9 + 512;
