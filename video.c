@@ -8,7 +8,7 @@ void video_init(uint8_t plane_size) {
 	VDP_CTRL_W = 0x8004; // No HBI, no HV latch
 	VDP_CTRL_W = 0x8134; // No display, VBI, DMA OK, V28
 	VDP_CTRL_W = 0x8230; // Plane A: $C000
-	VDP_CTRL_W = 0x8300 | (0x2000 >> 10); // 34; // Window:  $D000
+	VDP_CTRL_W = 0x8300 | (0xD000 >> 10); // 34; // Window:  $D000
 	VDP_CTRL_W = 0x8407; // Plane B: $E000
 	VDP_CTRL_W = 0x8578; // Sprites: $F000
 	VDP_CTRL_W = 0x8700; // BG color: palette 0, index 0

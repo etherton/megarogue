@@ -183,15 +183,15 @@ void draw_maze(int off_x,int off_y) {
 			VDP_DATA_W = NT_PALETTE_3 | (maze[row][col>>3] & (bit[col&7])? 'X' : ' ');
 	}
 #else
-	for (int row=1; row<=9; row++) {
-		for (int col=1; col<=14; col++) {
+	for (int row=1; row<11; row++) {
+		for (int col=1; col<22; col++) {
 			int bit_u = test(row-1,col)? OCC_U : 0;
 			int bit_d = test(row+1,col)? OCC_D : 0;
 			int bit_l = test(row,col-1)? OCC_L : 0;
 			int bit_r = test(row,col+1)? OCC_R : 0;
 			uint16_t tile = dirMap[bit_u | bit_d | bit_l | bit_r] * 9 + 512;
-			if (!(maze[row][col>>3] & (128>>(col&7))))
-				tile = 6 * 9 + 512;
+			if (!test(row,col))
+				tile = 4 * 9 + 512;
 			video_set_vram_write_addr(video_plane_b_addr((col-1)*3,(row-1)*3));
 			VDP_DATA_W=(tile+0) | NT_PALETTE_3;
 			VDP_DATA_W=(tile+3) | NT_PALETTE_3;

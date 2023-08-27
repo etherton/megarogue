@@ -80,7 +80,7 @@ inline uint16_t video_plane_a_addr(uint8_t x,uint8_t y) {
 	return (y << video_plane_shift) + x + x + 0xC000;
 }
 inline uint16_t video_plane_w_addr(uint8_t x,uint8_t y) {
-	return (y << video_plane_shift) + x + x + 0x2000;
+	return (y << video_plane_shift) + x + x + 0xD000;
 }
 inline uint16_t video_plane_b_addr(uint8_t x,uint8_t y) {
 	return (y << video_plane_shift) + x + x + 0xE000;

@@ -65,57 +65,29 @@ void _start() {
 
 	uint8_t flags = REG_VERSION_B;
 	video_init(PLANE_SIZE_64_32);
-	// video_config_window(RIGHT_OF_X_SPLIT | 16,0);
+	video_config_window(RIGHT_OF_X_SPLIT | 17,0);
+
 	// asm volatile("move #$2000,sr");
 	video_upload_palette(0, pal);
-	// video_set_palette_entry(0, 0x000E);
-	// video_set_palette_entry(1, 0x0EEE);
-	video_set_vram_write_addr(0);
-/* for (int i=0; i<4; i++) {
-	// Tile 0 first row
-	VDP_DATA_W = 0x0123;
-	VDP_DATA_W = 0x4567;
-	// Second row
-	VDP_DATA_W = 0x1234;
-	VDP_DATA_W = 0x5670;
-	// Third row
-	VDP_DATA_W = 0x2345;
-	VDP_DATA_W = 0x6701;
-	// Fourth row
-	VDP_DATA_W = 0x3456;
-	VDP_DATA_W = 0x7012;
-} */
 
+	video_set_vram_write_addr(0);
 	video_upload_bitmap_font(&font8x8_basic[0][0],8 * 128,0x0,0x7);
 
-	// Plane A, Palette 0
-	/* video_set_vram_write_addr(0xC000 + 60);
-	VDP_DATA_W = 'S';
-	VDP_DATA_W = 'e';
-	VDP_DATA_W = 'g';
-	VDP_DATA_W = 'a'; */
-
 	const uint16_t text_attr = NT_PRIORITY | NT_PALETTE_0;
-	// video_draw_string(video_plane_b_addr(0,0),0,"====----====----====----====----");
 	video_draw_string(video_plane_a_addr(10,10),text_attr,flags & REG_VERSION_PAL?"PAL ":"NTSC");
 	video_draw_string(video_plane_a_addr(10,12),text_attr,flags & REG_VERSION_OVERSEAS?"OVERSEAS":"DOMESTIC");
 
-	/* video_draw_string(video_plane_w_addr(32,0),0,"STR:18");
-	video_draw_string(video_plane_w_addr(32,1),0,"DEX:11");
-	video_draw_string(video_plane_w_addr(32,2),0,"CON:12");
-	video_draw_string(video_plane_w_addr(32,3),0,"WIS:08");
-	video_draw_string(video_plane_w_addr(32,4),0,"INT:09");
-	video_draw_string(video_plane_w_addr(32,6),0,"HP:010"); */
+	video_draw_string(video_plane_w_addr(34,0),0,"STR:18");
+	video_draw_string(video_plane_w_addr(34,1),0,"DEX:11");
+	video_draw_string(video_plane_w_addr(34,2),0,"CON:12");
+	video_draw_string(video_plane_w_addr(34,3),0,"WIS:08");
+	video_draw_string(video_plane_w_addr(34,4),0,"INT:09");
+	video_draw_string(video_plane_w_addr(34,6),0,"HP:010");
 
-	// Plane B, Palette 1
-	/*video_set_vram_write_addr(0xE000 + 62);
-	VDP_DATA_W = 'X' | 0x2000; //  | 0x8000;
-	*/
-	
 	video_set_vram_write_addr(0x4000);
 	for (int i=0; i<27; i++)
-		video_upload_sprite(bg_directory[i].tilePtr,9);
-	video_upload_palette(3,bg_directory[0].palPtr);
+		video_upload_sprite(bg_directory[i+27*2].tilePtr,9);
+	video_upload_palette(3,bg_directory[27*2].palPtr);
 	
 	init_maze();
 	draw_maze(0,0);
