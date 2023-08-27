@@ -12,6 +12,8 @@ void crash() {
 
 volatile uint8_t vbi;
 
+volatile uint32_t __halt1, __halt2;
+
 const uint16_t pal[16] = { 0x0E00, 0x0222, 0x0444, 0x0666, 0x0888, 0x0AAA, 0x0CCC, 0x0EEE, 0x0000, 0x000E, 0x00E0, 0x00EE, 0x0E00, 0x0E0E, 0x0EE0, 0x0EEE, };
 
 struct directory { const uint32_t *tilePtr; const uint16_t *palPtr; };

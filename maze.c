@@ -66,8 +66,8 @@ type[0b1111] = 20; // 4 way intersection
 */
 
 
+// Must be a multiple of 8
 #define SIZ 128 
-// const uint32_t SIZ = 128;
 uint8_t maze[SIZ][SIZ/8];
 const uint8_t left[] =  { 0xff, 0x7f, 0x3f, 0x1f, 0x0f, 0x07, 0x03, 0x01 };
 const uint8_t right[] = { 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff };
@@ -117,60 +117,70 @@ void print_maze() {
 #endif
 
 
-uint32_t mul32(uint32_t ab,uint32_t cd) {
-	// AB * CD = (AC << 32) + ((B*C + A*D)<<16) + B*D
-	return ((mul16((uint16_t)ab,(uint16_t)(cd>>16)) + mul16((uint16_t)(ab>>16),(uint16_t)cd)) << 16) + mul16((uint16_t)ab,(uint16_t)cd);
-}
-
 uint32_t seed;
 
-static inline int Random(uint16_t r) {
-	if (!seed) seed=1;
+uint32_t  Random(uint32_t range) {
+	while (!range)
+		__halt1=0, __halt2 = __LINE__;
 	seed = mul32(seed,1103515245U) + 12345;
-	return modulo(seed,r);
-	// return arc4random() % r;
+	uint32_t res = modulo((uint16_t)seed,range);
+	while (res > range)
+		__halt1 = res, __halt2 = __LINE__;
+	return res;
 }
 
-inline int PACK(int a,int b,int c,int d,int e) {
-	return (a << 28) | (b << 21) | (c << 14) | (d << 7) | e;
-}
-
-void make_maze(int pack) {
-	int axis = pack >> 28;
-	int start = (pack >> 21) & 127;
-	int stop = (pack >> 14) & 127;
-	int otherStart = (pack >> 7) & 127;
-	int otherStop = pack & 127;
+/* X .. X
+   ^    ^
+   |    stop
+   start
+   If we want any remaining randomness, they cannot be any closer than 5 */
+void make_maze(int axis,int start,int stop,int otherStart,int otherStop) {
 	assert(start<stop);
 	assert(otherStart<otherStop);
-	if (stop-start < 10)
+	if (stop-start <= 5)
 		return;
-	if (otherStop-otherStart < 10)
-		return;
-	int split = start + 3 + Random(stop - start - 7);
-	if (axis)
+	/* if (otherStop-otherStart <= 5)
+		return; */
+	int split = start + 2 + Random(stop - start - 3);
+	if (axis & 1)
 		draw_row(split,otherStart,otherStop);
 	else
 		draw_col(split,otherStart,otherStop);
+#if 0
+	axis = axis + 2;
+	if (axis > 30) // max recursion depth
+		return;
+#endif
 	if (split - start  > 2 * (otherStop - otherStart))
-		make_maze(PACK(axis,start,split,otherStart,otherStop));
+		make_maze(axis,start,split,otherStart,otherStop);
 	else
-		make_maze(PACK(!axis,otherStart,otherStop,start,split));
+		make_maze(axis ^ 1,otherStart,otherStop,start,split);
 	if (stop - split > 2 * (otherStop - otherStart))
-		make_maze(PACK(axis,split,stop,otherStart,otherStop));
+		make_maze(axis,split,stop,otherStart,otherStop);
 	else
-		make_maze(PACK(!axis,otherStart,otherStop,split,stop));
+		make_maze(axis ^ 1,otherStart,otherStop,split,stop);
 }
 
 void init_maze() {
+	// assert(mul32(1000,2000) == 2000000);
+	// assert(modulo(1000,300) == 100);
+	assert(Random(10));
+	assert(Random(100));
 	draw_row(1,1,SIZ-2);
 	draw_row(SIZ-2,1,SIZ-2);
 	draw_col(1,1,SIZ-2);
 	draw_col(SIZ-2,1,SIZ-2);
-	// make_maze(PACK(Random(2),1,SIZ-2,1,SIZ-2));
+	make_maze(Random(2),1,SIZ-2,1,SIZ-2);
 }
 
 void draw_maze(int off_x,int off_y) {
+#if 0
+	for (int row=0; row<24; row++) {
+		video_set_vram_write_addr(video_plane_b_addr(0,row));
+		for (int col=0; col<40; col++)
+			VDP_DATA_W = NT_PALETTE_3 | (maze[row][col>>3] & (0x80 >> (col&7))? 'X' : ' ');
+	}
+#else
 	for (int row=1; row<=9; row++) {
 		for (int col=1; col<=14; col++) {
 			int bit_u = (maze[row-1][(col+0)>>3] & (128>>((col+0)&7))) != 0? OCC_U : 0;;
@@ -194,4 +204,5 @@ void draw_maze(int off_x,int off_y) {
 			VDP_DATA_W=(tile+8) | NT_PALETTE_3;
 		}
 	}
+#endif
 }

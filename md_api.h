@@ -6,7 +6,8 @@ typedef unsigned int uint32_t;
 #ifdef NDEBUG
 #define md_assert(x)
 #else
-#define md_assert(x)	do { if (!(x)) asm(".short 0x4E43"); } while (0) // TRAP 3
+extern volatile uint32_t __halt1, __halt2;
+#define md_assert(x)	while (!(x)) __halt1 = __LINE__;
 #endif
 
 #define REG_VERSION_B (*(volatile uint8_t*)0xA10001)
