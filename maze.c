@@ -162,17 +162,15 @@ void make_maze(int axis,int start,int stop,int otherStart,int otherStop) {
 }
 
 void init_maze() {
-	draw_row(1,1,SIZ-2);
-	draw_row(SIZ-2,1,SIZ-2);
-	draw_col(1,1,SIZ-2);
-	draw_col(SIZ-2,1,SIZ-2);
-	make_maze(Random(2),1,SIZ-2,1,SIZ-2);
+	draw_row(0,0,SIZ-1);
+	draw_row(SIZ-1,0,SIZ-1);
+	draw_col(0,0,SIZ-1);
+	draw_col(SIZ-1,0,SIZ-1);
+	make_maze(Random(2),0,SIZ-1,0,SIZ-1);
 }
 
 inline _Bool test(int r,int c) {
-	assert(r>=0&&r<SIZ);
-	assert(c>=0&&c<SIZ);
-	return (maze[r][c>>3] & bit[c&7]) != 0;
+	return r>=0&r<SIZ&&c>=0&&c<SIZ?(maze[r][c>>3] & bit[c&7]) != 0 : 0;
 }
 
 void draw_maze(int off_x,int off_y) {
@@ -183,8 +181,8 @@ void draw_maze(int off_x,int off_y) {
 			VDP_DATA_W = NT_PALETTE_3 | (maze[row][col>>3] & (bit[col&7])? 'X' : ' ');
 	}
 #else
-	for (int row=1; row<11; row++) {
-		for (int col=1; col<22; col++) {
+	for (int row=0; row<10; row++) {
+		for (int col=0; col<21; col++) {
 			int bit_u = test(row-1,col)? OCC_U : 0;
 			int bit_d = test(row+1,col)? OCC_D : 0;
 			int bit_l = test(row,col-1)? OCC_L : 0;
@@ -192,15 +190,15 @@ void draw_maze(int off_x,int off_y) {
 			uint16_t tile = dirMap[bit_u | bit_d | bit_l | bit_r] * 9 + 512;
 			if (!test(row,col))
 				tile = 4 * 9 + 512;
-			video_set_vram_write_addr(video_plane_b_addr((col-1)*3,(row-1)*3));
+			video_set_vram_write_addr(video_plane_b_addr(col*3,row*3));
 			VDP_DATA_W=(tile+0) | NT_PALETTE_3;
 			VDP_DATA_W=(tile+3) | NT_PALETTE_3;
 			VDP_DATA_W=(tile+6) | NT_PALETTE_3;
-			video_set_vram_write_addr(video_plane_b_addr((col-1)*3,(row-1)*3+1));
+			video_set_vram_write_addr(video_plane_b_addr(col*3,row*3+1));
 			VDP_DATA_W=(tile+1) | NT_PALETTE_3;
 			VDP_DATA_W=(tile+4) | NT_PALETTE_3;
 			VDP_DATA_W=(tile+7) | NT_PALETTE_3;
-			video_set_vram_write_addr(video_plane_b_addr((col-1)*3,(row-1)*3+2));
+			video_set_vram_write_addr(video_plane_b_addr(col*3,row*3+2));
 			VDP_DATA_W=(tile+2) | NT_PALETTE_3;
 			VDP_DATA_W=(tile+5) | NT_PALETTE_3;
 			VDP_DATA_W=(tile+8) | NT_PALETTE_3;
