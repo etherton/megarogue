@@ -120,13 +120,11 @@ void print_maze() {
 uint32_t seed;
 
 uint32_t  Random(uint32_t range) {
-	while (!range)
-		__halt1=0, __halt2 = __LINE__;
 	seed = mul32(seed,1103515245U) + 12345;
-	uint32_t res = modulo((uint16_t)seed,range);
-	while (res > range)
-		__halt1 = res, __halt2 = __LINE__;
-	return res;
+	if ((range << 15) < seed)
+		return modulo((uint16_t)seed,range);
+	else
+		return modulo(seed,range);
 }
 
 /* X .. X
@@ -139,18 +137,11 @@ void make_maze(int axis,int start,int stop,int otherStart,int otherStop) {
 	assert(otherStart<otherStop);
 	if (stop-start <= 5)
 		return;
-	/* if (otherStop-otherStart <= 5)
-		return; */
 	int split = start + 2 + Random(stop - start - 3);
 	if (axis & 1)
 		draw_row(split,otherStart,otherStop);
 	else
 		draw_col(split,otherStart,otherStop);
-#if 0
-	axis = axis + 2;
-	if (axis > 30) // max recursion depth
-		return;
-#endif
 	if (split - start  > 2 * (otherStop - otherStart))
 		make_maze(axis,start,split,otherStart,otherStop);
 	else
@@ -162,10 +153,6 @@ void make_maze(int axis,int start,int stop,int otherStart,int otherStop) {
 }
 
 void init_maze() {
-	// assert(mul32(1000,2000) == 2000000);
-	// assert(modulo(1000,300) == 100);
-	assert(Random(10));
-	assert(Random(100));
 	draw_row(1,1,SIZ-2);
 	draw_row(SIZ-2,1,SIZ-2);
 	draw_col(1,1,SIZ-2);
