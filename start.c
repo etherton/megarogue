@@ -89,8 +89,8 @@ void _start() {
 		video_upload_sprite(bg_directory[i+27*2].tilePtr,9);
 	video_upload_palette(3,bg_directory[27*2].palPtr);
 	
-	init_maze();
-	draw_maze(0,0);
+	maze_init();
+	maze_draw(0,0);
 
 	video_enable();
 	asm(".long 0x46FC2000"); // move #0x2000, sr
@@ -137,6 +137,8 @@ void _start() {
 		if (pad0 & JOYPAD_RIGHT) {
 			if (off_x < (MAZE_SIZE * 3 - 40) * 8 - 1)
 				off_x++;
+			if ((off_x & 7)==0)
+				maze_new_right_column(off_x);
 		}
 		else if (pad0 & JOYPAD_LEFT) {
 			if (off_x > 0)

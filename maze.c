@@ -73,7 +73,7 @@ const uint8_t left[] =  { 0xff, 0x7f, 0x3f, 0x1f, 0x0f, 0x07, 0x03, 0x01 };
 const uint8_t right[] = { 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff };
 const uint8_t bit[] =   { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
 
-void draw_row(int row,int l,int r) {
+static void draw_row(int row,int l,int r) {
 	assert(row>=0&&row<MAZE_SIZE);
 	assert(l<=r);
 	assert(l>=0);
@@ -89,7 +89,7 @@ void draw_row(int row,int l,int r) {
 	}
 }
 
-void draw_col(int col,int t,int b) {
+static void draw_col(int col,int t,int b) {
 	assert(col>=0&&col<MAZE_SIZE);
 	assert(t<=b);
 	assert(t>=0);
@@ -98,7 +98,7 @@ void draw_col(int col,int t,int b) {
 		maze[t++][col>>3] |= bit[col&7];
 }
 
-void unset(int row,int col) {
+static void unset(int row,int col) {
 	maze[row][col>>3] &= ~bit[col&7];
 }
 
@@ -124,7 +124,7 @@ void print_maze() {
 
 uint32_t seed;
 
-uint32_t  Random(uint32_t range) {
+static uint32_t Random(uint32_t range) {
 	seed = mul32(seed,1103515245U) + 12345;
 	if ((range << 15) < seed)
 		return modulo((uint16_t)seed,range);
@@ -137,7 +137,7 @@ uint32_t  Random(uint32_t range) {
    |    stop
    start
    If we want any remaining randomness, they cannot be any closer than 5 */
-void make_maze(int axis,int start,int stop,int otherStart,int otherStop) {
+static void make_maze(int axis,int start,int stop,int otherStart,int otherStop) {
 	assert(start<stop);
 	assert(otherStart<otherStop);
 	if (stop-start <= 5)
@@ -161,7 +161,7 @@ void make_maze(int axis,int start,int stop,int otherStart,int otherStop) {
 		make_maze(axis ^ 1,otherStart,otherStop,split,stop);
 }
 
-void init_maze() {
+void maze_init() {
 	draw_row(0,0,MAZE_SIZE-1);
 	draw_row(MAZE_SIZE-1,0,MAZE_SIZE-1);
 	draw_col(0,0,MAZE_SIZE-1);
@@ -169,27 +169,25 @@ void init_maze() {
 	make_maze(Random(2),0,MAZE_SIZE-1,0,MAZE_SIZE-1);
 }
 
-inline _Bool test(int r,int c) {
+static inline _Bool test(int r,int c) {
 	return r>=0&r<MAZE_SIZE&&c>=0&&c<MAZE_SIZE?(maze[r][c>>3] & bit[c&7]) != 0 : 0;
 }
 
-void draw_maze(int off_x,int off_y) {
-#if 0
-	for (int row=0; row<24; row++) {
-		video_set_vram_write_addr(video_plane_b_addr(0,row));
-		for (int col=0; col<40; col++)
-			VDP_DATA_W = NT_PALETTE_3 | (maze[row][col>>3] & (bit[col&7])? 'X' : ' ');
-	}
-#else
+int maze_get_tile(int row,int col) {
+	int bit_u = test(row-1,col)? OCC_U : 0;
+	int bit_d = test(row+1,col)? OCC_D : 0;
+	int bit_l = test(row,col-1)? OCC_L : 0;
+	int bit_r = test(row,col+1)? OCC_R : 0;
+	uint16_t tile = dirMap[bit_u | bit_d | bit_l | bit_r] * 9 + 512;
+	if (!test(row,col))
+		tile = 4 * 9 + 512;
+	return tile;
+}
+
+void maze_draw(int off_x,int off_y) {
 	for (int row=0; row<11; row++) {
 		for (int col=0; col<22; col++) {
-			int bit_u = test(row-1,col)? OCC_U : 0;
-			int bit_d = test(row+1,col)? OCC_D : 0;
-			int bit_l = test(row,col-1)? OCC_L : 0;
-			int bit_r = test(row,col+1)? OCC_R : 0;
-			uint16_t tile = dirMap[bit_u | bit_d | bit_l | bit_r] * 9 + 512;
-			if (!test(row,col))
-				tile = 4 * 9 + 512;
+			int tile = maze_get_tile(row,col);
 			video_set_vram_write_addr(video_plane_b_addr(col*3,row*3));
 			VDP_DATA_W=(tile+0) | NT_PALETTE_3;
 			if (col != 21) {
@@ -212,5 +210,22 @@ void draw_maze(int off_x,int off_y) {
 			}
 		}
 	}
-#endif
+}
+
+// First call is with off_x=8, when the leftmost column needs to be replace
+void maze_new_right_column(uint32_t off_x) {
+	off_x >>= 3;
+	VDP_CTRL_W = 0x8F80;	// Autoincrement = 128
+	video_set_vram_write_addr(video_plane_b_addr((off_x-1)&63,0));
+	off_x += 63;
+	uint32_t res = div_mod(off_x,3);
+	uint16_t maze_col = (uint16_t) res;
+	uint16_t maze_sub = (uint16_t) (res >> 16);
+	for (uint32_t row=0; row<32; row++) {
+		int tile = maze_get_tile((uint16_t)row/3,maze_col);
+		tile += ((uint16_t)row % 3);
+		tile += 3 * maze_sub;
+		VDP_DATA_W = NT_PALETTE_3 | tile;
+	}
+	VDP_CTRL_W = 0x8F02;
 }
