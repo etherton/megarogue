@@ -1,5 +1,6 @@
 #include "md_api.h"
 #include "md_math.h"
+#include "maze.h"
 
 #define assert md_assert
 
@@ -67,17 +68,16 @@ type[0b1111] = 20; // 4 way intersection
 
 
 // Must be a multiple of 8
-#define SIZ 128 
-uint8_t maze[SIZ][SIZ/8];
+uint8_t maze[MAZE_SIZE][MAZE_SIZE/8];
 const uint8_t left[] =  { 0xff, 0x7f, 0x3f, 0x1f, 0x0f, 0x07, 0x03, 0x01 };
 const uint8_t right[] = { 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff };
 const uint8_t bit[] =   { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
 
 void draw_row(int row,int l,int r) {
-	assert(row>=0&&row<SIZ);
+	assert(row>=0&&row<MAZE_SIZE);
 	assert(l<=r);
 	assert(l>=0);
-	assert(r<SIZ);
+	assert(r<MAZE_SIZE);
 	if ((l>>3)==(r>>3))
 		maze[row][l>>3] |= left[l&7] & right[r&7];
 	else {
@@ -90,10 +90,10 @@ void draw_row(int row,int l,int r) {
 }
 
 void draw_col(int col,int t,int b) {
-	assert(col>=0&&col<SIZ);
+	assert(col>=0&&col<MAZE_SIZE);
 	assert(t<=b);
 	assert(t>=0);
-	assert(b<SIZ);
+	assert(b<MAZE_SIZE);
 	while (t<=b)
 		maze[t++][col>>3] |= bit[col&7];
 }
@@ -105,8 +105,8 @@ void unset(int row,int col) {
 #if 0
 void print_maze() {
 	char c = '*', s = ' ';
-	for (int row=0; row<SIZ; row++) {
-		for (int col=0; col<SIZ/8; col++) {
+	for (int row=0; row<MAZE_SIZE; row++) {
+		for (int col=0; col<MAZE_SIZE/8; col++) {
 			putchar(maze[row][col] & 0x80?c:s);
 			putchar(maze[row][col] & 0x40?c:s);
 			putchar(maze[row][col] & 0x20?c:s);
@@ -162,15 +162,15 @@ void make_maze(int axis,int start,int stop,int otherStart,int otherStop) {
 }
 
 void init_maze() {
-	draw_row(0,0,SIZ-1);
-	draw_row(SIZ-1,0,SIZ-1);
-	draw_col(0,0,SIZ-1);
-	draw_col(SIZ-1,0,SIZ-1);
-	make_maze(Random(2),0,SIZ-1,0,SIZ-1);
+	draw_row(0,0,MAZE_SIZE-1);
+	draw_row(MAZE_SIZE-1,0,MAZE_SIZE-1);
+	draw_col(0,0,MAZE_SIZE-1);
+	draw_col(MAZE_SIZE-1,0,MAZE_SIZE-1);
+	make_maze(Random(2),0,MAZE_SIZE-1,0,MAZE_SIZE-1);
 }
 
 inline _Bool test(int r,int c) {
-	return r>=0&r<SIZ&&c>=0&&c<SIZ?(maze[r][c>>3] & bit[c&7]) != 0 : 0;
+	return r>=0&r<MAZE_SIZE&&c>=0&&c<MAZE_SIZE?(maze[r][c>>3] & bit[c&7]) != 0 : 0;
 }
 
 void draw_maze(int off_x,int off_y) {
@@ -181,8 +181,8 @@ void draw_maze(int off_x,int off_y) {
 			VDP_DATA_W = NT_PALETTE_3 | (maze[row][col>>3] & (bit[col&7])? 'X' : ' ');
 	}
 #else
-	for (int row=0; row<10; row++) {
-		for (int col=0; col<21; col++) {
+	for (int row=0; row<11; row++) {
+		for (int col=0; col<22; col++) {
 			int bit_u = test(row-1,col)? OCC_U : 0;
 			int bit_d = test(row+1,col)? OCC_D : 0;
 			int bit_l = test(row,col-1)? OCC_L : 0;
@@ -192,16 +192,24 @@ void draw_maze(int off_x,int off_y) {
 				tile = 4 * 9 + 512;
 			video_set_vram_write_addr(video_plane_b_addr(col*3,row*3));
 			VDP_DATA_W=(tile+0) | NT_PALETTE_3;
-			VDP_DATA_W=(tile+3) | NT_PALETTE_3;
-			VDP_DATA_W=(tile+6) | NT_PALETTE_3;
+			if (col != 21) {
+				VDP_DATA_W=(tile+3) | NT_PALETTE_3;
+				VDP_DATA_W=(tile+6) | NT_PALETTE_3;
+			}
 			video_set_vram_write_addr(video_plane_b_addr(col*3,row*3+1));
 			VDP_DATA_W=(tile+1) | NT_PALETTE_3;
-			VDP_DATA_W=(tile+4) | NT_PALETTE_3;
-			VDP_DATA_W=(tile+7) | NT_PALETTE_3;
-			video_set_vram_write_addr(video_plane_b_addr(col*3,row*3+2));
-			VDP_DATA_W=(tile+2) | NT_PALETTE_3;
-			VDP_DATA_W=(tile+5) | NT_PALETTE_3;
-			VDP_DATA_W=(tile+8) | NT_PALETTE_3;
+			if (col != 21) {
+				VDP_DATA_W=(tile+4) | NT_PALETTE_3;
+				VDP_DATA_W=(tile+7) | NT_PALETTE_3;
+			}
+			if (row!=10) {
+				video_set_vram_write_addr(video_plane_b_addr(col*3,row*3+2));
+				VDP_DATA_W=(tile+2) | NT_PALETTE_3;
+				if (col != 21) {
+					VDP_DATA_W=(tile+5) | NT_PALETTE_3;
+					VDP_DATA_W=(tile+8) | NT_PALETTE_3;
+				}
+			}
 		}
 	}
 #endif

@@ -8,9 +8,12 @@ struct targa_header {
 	uint16_t width;
 	uint16_t height;
 	uint8_t pixelDepth;	// 32
-	uint8_t imageDescriptor; // bits 3-0 give alpha depth (8), bit 4:right-to-left if set, bit 5:top-to`-bottom if set
+	uint8_t imageDescriptor; // bits 3-0 give alpha depth (8), bit 4:right-to-left if set, bit 5:top-to-bottom if set
 };
 
 inline bool is_valid_targa_header(targa_header *h) {
 	return h->imageIdLength==0 && h->colorMapType==0 && h->imageType==2 && h->pixelDepth==32 && h->imageDescriptor == 0x28;
 }
+
+/* RLE is pretty simple; if MSB is set, repeat following "color" N+1 times. If MSB is clear, the following N+1 "colors"
+   are raw data. Either way, a color is either a single byte if it's colormapped, or 2/3/4 bytes if it's true color */

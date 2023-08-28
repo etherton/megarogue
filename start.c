@@ -99,6 +99,7 @@ void _start() {
 	uint32_t elapsed = 0;
 	uint32_t step = (flags & REG_VERSION_PAL)? 65536/50 : 65536/60;
 	uint32_t next = 0;
+	uint32_t off_x = 0, off_y = 0;
 	while (1) {
 		elapsed += step;
 		char timer[6];
@@ -124,9 +125,33 @@ void _start() {
 		video_set_vram_write_addr(0x2000);
 		video_upload_sprite(char_directory[ti].tilePtr,9);
 
+		video_set_vram_write_addr(0xF802);
+		VDP_DATA_W = -off_x;
+		
+		VDP_CTRL_L = 0x40020010;
+		VDP_DATA_W = off_y;
+
 		uint16_t pad0 = joypad_read(0), pad1 = joypad_read(1);
 		if (pad0 & JOYPAD_START)
 			elapsed = 0;
+		if (pad0 & JOYPAD_RIGHT) {
+			if (off_x < (MAZE_SIZE * 3 - 40) * 8 - 1)
+				off_x++;
+		}
+		else if (pad0 & JOYPAD_LEFT) {
+			if (off_x > 0)
+				--off_x;
+		}
+		if (pad0 & JOYPAD_DOWN) {
+			if (off_y < (MAZE_SIZE * 3 - 24) * 8 - 1)
+				off_y++;
+		}
+		else if (pad0 & JOYPAD_UP) {
+			if (off_y > 0)
+				--off_y;
+		}
+		
+			
 		draw_pad("ONE ", 4,16,text_attr, pad0);
 		draw_pad("TWO ", 4,18,text_attr, pad1);
 		// video_set_palette_entry(1, n & 0xEEE);
