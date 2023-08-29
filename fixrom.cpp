@@ -29,7 +29,7 @@ int main(int argc,char **argv) {
 	for (size_t i=256; i<rounded/2; i++)
 		checksum += rom16[i];
 	rom16[0x18E/2] = checksum;
-	rom32[0x1a4/4] = (uint32_t)size-1;
+	rom32[0x1a4/4] = (uint32_t)rounded-1;
 	printf("checksum set to %u\n",rom16[0x18e/2]);
 	fwrite(rom,1,rounded,f);
 	fclose(f);
