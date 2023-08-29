@@ -8,6 +8,12 @@ fixrom: fixrom.cpp
 mkpal: mkpal.cpp
 	clang -O3 -std=c++11 mkpal.cpp -lc++ -o mkpal
 
+maze.c: md_api.h md_math.h maze.h
+
+joypad.c: md_api.h
+
+start.c: md_api.h md_math.h maze.h
+
 # tga_name c_name c_sym start_x start_y cell_w cell_h cells_across cells_down palette_group_cell_width palette_group_cell_height color_bits_per_channel
 
 char_tiles.c: mkpal
