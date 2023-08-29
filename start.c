@@ -134,17 +134,18 @@ void _start() {
 		uint16_t pad0 = joypad_read(0), pad1 = joypad_read(1);
 		if (pad0 & JOYPAD_START)
 			elapsed = 0;
-		uint32_t new_off_x = (pad0 & JOYPAD_RIGHT) && (off_x < (MAZE_SIZE * 3 - 40) * 8 -1)? off_x + 1 :
-			(pad0 & JOYPAD_LEFT) && off_x? off_x - 1 : off_x;
-		uint32_t new_off_y = (pad0 & JOYPAD_DOWN) && (off_y < (MAZE_SIZE * 3 - 28) * 8 -1)? off_y + 1 :
-			(pad0 & JOYPAD_UP) && off_y ? off_y - 1 : off_y;
-		if (new_off_x > off_x && (new_off_x & 7)==0)
+		uint8_t d = (pad0 & JOYPAD_A)? 8 : 1;
+		uint32_t new_off_x = (pad0 & JOYPAD_RIGHT) && (off_x+d < (MAZE_SIZE * 3 - 40) * 8)? off_x + d :
+			(pad0 & JOYPAD_LEFT) && off_x>=d? off_x - d : off_x;
+		uint32_t new_off_y = (pad0 & JOYPAD_DOWN) && (off_y+d < (MAZE_SIZE * 3 - 28) * 8)? off_y + d :
+			(pad0 & JOYPAD_UP) && off_y>=d ? off_y - d : off_y;
+		if ((new_off_x>>3) > (off_x>>3))
 			maze_new_right_column(new_off_x>>3,new_off_y>>3);
-		else if (new_off_x < off_x && (new_off_x & 7)==7)
+		else if ((new_off_x>>3) < (off_x>>3))
 			maze_new_left_column(new_off_x>>3,new_off_y>>3);
-		if (new_off_y > off_y && (new_off_y & 7)==0)
+		if ((new_off_y>>3) > (off_y>>3))
 			maze_new_bottom_row(new_off_x>>3,new_off_y>>3);
-		else if (new_off_y < off_y && (new_off_y & 7)==7)
+		else if ((new_off_y>>3) < (off_y>>3))
 			maze_new_top_row(new_off_x>>3,new_off_y>>3);
 		off_x = new_off_x;
 		off_y = new_off_y;
