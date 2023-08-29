@@ -174,13 +174,13 @@ static inline _Bool test(int r,int c) {
 }
 
 int maze_get_tile(int row,int col) {
+	if (!test(row,col))
+		return 4 * 9 + 512;
 	int bit_u = test(row-1,col)? OCC_U : 0;
 	int bit_d = test(row+1,col)? OCC_D : 0;
 	int bit_l = test(row,col-1)? OCC_L : 0;
 	int bit_r = test(row,col+1)? OCC_R : 0;
 	uint16_t tile = dirMap[bit_u | bit_d | bit_l | bit_r] * 9 + 512;
-	if (!test(row,col))
-		tile = 4 * 9 + 512;
 	return tile;
 }
 
@@ -212,20 +212,32 @@ void maze_draw(int off_x,int off_y) {
 	}
 }
 
-// First call is with off_x=8, when the leftmost column needs to be replace
-void maze_new_right_column(uint32_t off_x) {
-	off_x >>= 3;
+void maze_new_column(uint32_t off_x,uint32_t off_y,uint32_t vid_col) {
 	VDP_CTRL_W = 0x8F80;	// Autoincrement = 128
-	video_set_vram_write_addr(video_plane_b_addr((off_x-1)&63,0));
-	off_x += 63;
-	uint32_t res = div_mod(off_x,3);
-	uint16_t maze_col = (uint16_t) res;
-	uint16_t maze_sub = (uint16_t) (res >> 16);
-	for (uint32_t row=0; row<32; row++) {
-		int tile = maze_get_tile((uint16_t)row/3,maze_col);
-		tile += ((uint16_t)row % 3);
-		tile += 3 * maze_sub;
+	video_set_vram_write_addr(video_plane_b_addr(vid_col,0));
+	uint32_t temp_x = div_mod(off_x,3);
+	uint32_t temp_y = div_mod(off_y,3);
+	uint16_t tile_x = (uint16_t)temp_x, subtile_x = (uint16_t)(temp_x>>16) * 3;
+	uint16_t tile_y = (uint16_t)temp_y, subtile_y = (uint16_t)(temp_y>>16);
+	uint16_t tile = maze_get_tile(tile_y,tile_x) + subtile_y + subtile_x;
+	for (uint16_t r=0; r<32; r++) {
 		VDP_DATA_W = NT_PALETTE_3 | tile;
+		if (++subtile_y==3) {
+			++tile_y;
+			subtile_y=0;
+			tile = maze_get_tile(tile_y,tile_x) + subtile_x;
+		}
+		else
+			++tile;
 	}
-	VDP_CTRL_W = 0x8F02;
+	VDP_CTRL_W = 0x8F02;	// Autoincrement = 2;
 }
+
+void maze_new_right_column(uint32_t off_x,uint32_t off_y) {
+	maze_new_column(off_x+63,off_y,(off_x-1)&63);
+}
+
+void maze_new_left_column(uint32_t off_x,uint32_t off_y) {
+	maze_new_column(off_x,off_y,off_x&63);
+}
+

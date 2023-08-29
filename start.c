@@ -135,14 +135,18 @@ void _start() {
 		if (pad0 & JOYPAD_START)
 			elapsed = 0;
 		if (pad0 & JOYPAD_RIGHT) {
-			if (off_x < (MAZE_SIZE * 3 - 40) * 8 - 1)
+			if (off_x < (MAZE_SIZE * 3 - 40) * 8 - 1) {
 				off_x++;
-			if ((off_x & 7)==0)
-				maze_new_right_column(off_x);
+				if ((off_x & 7)==0)
+					maze_new_right_column(off_x >> 3,off_y >> 3);
+			}
 		}
 		else if (pad0 & JOYPAD_LEFT) {
-			if (off_x > 0)
+			if (off_x > 0) {
 				--off_x;
+				if ((off_x & 7)==7)
+					maze_new_left_column(off_x >> 3,off_y >> 3);
+			}
 		}
 		if (pad0 & JOYPAD_DOWN) {
 			if (off_y < (MAZE_SIZE * 3 - 24) * 8 - 1)
