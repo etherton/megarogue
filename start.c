@@ -144,7 +144,7 @@ void _start() {
 			maze_new_left_column(new_off_x>>3,new_off_y>>3);
 		if (new_off_y > off_y && (new_off_y & 7)==0)
 			maze_new_bottom_row(new_off_x>>3,new_off_y>>3);
-		else if (new_off_y < off_x && (new_off_y & 7)==7)
+		else if (new_off_y < off_y && (new_off_y & 7)==7)
 			maze_new_top_row(new_off_x>>3,new_off_y>>3);
 		off_x = new_off_x;
 		off_y = new_off_y;
