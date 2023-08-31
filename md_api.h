@@ -58,7 +58,8 @@ extern uint16_t joypad_read(int which);
 #define JOYPAD_MODE	0x0800
 #define JOYPAD_6	0x8000
 
-extern uint8_t video_plane_shift;
+extern uint8_t video_plane_shift, video_plane_width, video_plane_width_mask,
+	video_plane_height, video_plane_height_mask;
 extern void video_init(uint8_t plane_size /*PLANE_SIZE_...*/);
 #define LEFT_OF_X_SPLIT 0x00
 #define RIGHT_OF_X_SPLIT 0x80

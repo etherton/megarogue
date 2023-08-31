@@ -213,15 +213,15 @@ void maze_draw(int off_x,int off_y) {
 }
 
 void maze_new_column(uint32_t off_x,uint32_t off_y,uint32_t vid_col) {
-	VDP_CTRL_W = 0x8F80;	// Autoincrement = 128
+	VDP_CTRL_W = 0x8F00 | (video_plane_width<<1);	// Autoincrement = one canvas line
 	uint32_t temp_x = div_mod(off_x,3);
 	uint32_t temp_y = div_mod(off_y,3);
 	uint16_t tile_x = (uint16_t)temp_x, subtile_x = (uint16_t)(temp_x>>16) * 3;
 	uint16_t tile_y = (uint16_t)temp_y, subtile_y = (uint16_t)(temp_y>>16);
-	video_set_vram_write_addr(video_plane_b_addr(vid_col,off_y & 31));
+	video_set_vram_write_addr(video_plane_b_addr(vid_col,off_y & video_plane_height_mask));
 	uint16_t tile = maze_get_tile(tile_y,tile_x) + subtile_y + subtile_x;
-	uint16_t r=32; 
-	while (--r) {
+	uint16_t r=video_plane_height; 
+	do {
 		VDP_DATA_W = NT_PALETTE_3 | tile;
 		if (++subtile_y==3) {
 			++tile_y;
@@ -230,18 +230,18 @@ void maze_new_column(uint32_t off_x,uint32_t off_y,uint32_t vid_col) {
 		}
 		else
 			++tile;
-		if ((++off_y & 31) == 0)
+		if ((++off_y & video_plane_height_mask) == 0)
 			video_set_vram_write_addr(video_plane_b_addr(vid_col,0));
-	}
+	} while (--r);
 	VDP_CTRL_W = 0x8F02;	// Autoincrement = 2;
 }
 
 void maze_new_right_column(uint32_t off_x,uint32_t off_y) {
-	maze_new_column(off_x+63,off_y,(off_x-1)&63);
+	maze_new_column(off_x+video_plane_width_mask,off_y,(off_x+video_plane_width_mask)&video_plane_width_mask);
 }
 
 void maze_new_left_column(uint32_t off_x,uint32_t off_y) {
-	maze_new_column(off_x,off_y,off_x&63);
+	maze_new_column(off_x,off_y,off_x&video_plane_width_mask);
 }
 
 void maze_new_row(uint32_t off_x,uint32_t off_y,uint32_t vid_row) {
@@ -249,10 +249,10 @@ void maze_new_row(uint32_t off_x,uint32_t off_y,uint32_t vid_row) {
 	uint32_t temp_y = div_mod(off_y,3);
 	uint16_t tile_x = (uint16_t)temp_x, subtile_x = (uint16_t)(temp_x>>16) * 3;
 	uint16_t tile_y = (uint16_t)temp_y, subtile_y = (uint16_t)(temp_y>>16);
-	video_set_vram_write_addr(video_plane_b_addr(off_x & 63,vid_row));
+	video_set_vram_write_addr(video_plane_b_addr(off_x & video_plane_width_mask,vid_row));
 	uint16_t tile = maze_get_tile(tile_y,tile_x) + subtile_y + subtile_x;
-	uint16_t c=64;
-	while (--c) {
+	uint16_t c=video_plane_width;
+	do {
 		VDP_DATA_W = NT_PALETTE_3 | tile;
 		if ((subtile_x+=3)==9) {
 			++tile_x;
@@ -261,16 +261,39 @@ void maze_new_row(uint32_t off_x,uint32_t off_y,uint32_t vid_row) {
 		}
 		else
 			tile+=3;
-		if ((++off_x & 63) == 0)
+		if ((++off_x & video_plane_width_mask) == 0)
 			video_set_vram_write_addr(video_plane_b_addr(0,vid_row));
-	}
+	} while (--c);
 }
 
 void maze_new_bottom_row(uint32_t off_x,uint32_t off_y) {
-	maze_new_row(off_x,off_y+31,(off_y-1)&31);
+	maze_new_row(off_x,off_y+video_plane_height_mask,(off_y+video_plane_height_mask)&video_plane_height_mask);
 }
 
 void maze_new_top_row(uint32_t off_x,uint32_t off_y) {
-	maze_new_row(off_x,off_y,off_y&31);
+	maze_new_row(off_x,off_y,off_y&video_plane_height_mask);
 }
 
+/*
+	scrolling algorithm:
+
+	abcdefgh
+
+	As soon has 'a' has scrolled completely off the screen, replace it with 'i'.
+	Conceptually, this is (offset - 1) masked to canvas width.
+
+	Consider a simpler case diagonally: (canvas is 4x4, screen is 3x3)
+	(capital letters indicate the portion visible on screen)
+
+	ABCd            eBCD
+	FGHi     Pan    jGHI
+	KLMn    right:  oLMN
+	pqrs            tqrs
+
+	Pan down:     Pan digonally:
+
+	uvwx		uvwx
+	FGHi		jGHI
+	KLMn		oLMN
+	PQRs		tQRS
+*/

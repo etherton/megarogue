@@ -140,15 +140,15 @@ void _start() {
 		uint32_t new_off_y = (pad0 & JOYPAD_DOWN) && (off_y+d < (MAZE_SIZE * 3 - 28) * 8)? off_y + d :
 			(pad0 & JOYPAD_UP) && off_y>=d ? off_y - d : off_y;
 		if ((new_off_x>>3) > (off_x>>3))
-			maze_new_right_column(new_off_x>>3,new_off_y>>3);
+			maze_new_right_column(new_off_x>>3,off_y>>3);
 		else if ((new_off_x>>3) < (off_x>>3))
-			maze_new_left_column(new_off_x>>3,new_off_y>>3);
+			maze_new_left_column(new_off_x>>3,off_y>>3);
 		if ((new_off_y>>3) > (off_y>>3))
 			maze_new_bottom_row(new_off_x>>3,new_off_y>>3);
 		else if ((new_off_y>>3) < (off_y>>3))
 			maze_new_top_row(new_off_x>>3,new_off_y>>3);
-		off_x = new_off_x;
 		off_y = new_off_y;
+		off_x = new_off_x;
 			
 		draw_pad("ONE ", 4,16,text_attr, pad0);
 		draw_pad("TWO ", 4,18,text_attr, pad1);

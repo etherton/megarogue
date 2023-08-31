@@ -3,26 +3,34 @@
 // https://md.railgun.works/index.php?title=VDP
 
 uint8_t video_plane_shift;
+uint8_t video_plane_width, video_plane_width_mask;
+uint8_t video_plane_height, video_plane_height_mask;
+
+const uint8_t plane_shifts[] = { 5, 6, 0, 7 }; // 32,64,128
 
 void video_init(uint8_t plane_size) {
 	VDP_CTRL_W = 0x8004; // No HBI, no HV latch
 	VDP_CTRL_W = 0x8134; // No display, VBI, DMA OK, V28
-	VDP_CTRL_W = 0x8230; // Plane A: $C000
-	VDP_CTRL_W = 0x8300 | (0xD000 >> 10); // 34; // Window:  $D000
-	VDP_CTRL_W = 0x8407; // Plane B: $E000
-	VDP_CTRL_W = 0x8578; // Sprites: $F000
+	VDP_CTRL_W = 0x8200 | (0xC000 >> 10); // Plane A: $C000
+	VDP_CTRL_W = 0x8300 | (0xD000 >> 10); // Window:  $D000
+	VDP_CTRL_W = 0x8400 | (0xE000 >> 13); // Plane B: $E000
+	VDP_CTRL_W = 0x8500 | (0xF000 >> 9);  // Sprites: $F000
 	VDP_CTRL_W = 0x8700; // BG color: palette 0, index 0
 	VDP_CTRL_W = 0x8B00; // No IRQ2, full scrolling
 	VDP_CTRL_W = 0x8C81; // H40, no S/H, no interlace
-	VDP_CTRL_W = 0x8D3E; // Hscroll: $F800
+	VDP_CTRL_W = 0x8D00 | (0xF800 >> 10); // Hscroll: $F800
 	VDP_CTRL_W = 0x8F02; // Autoincrement: 2 bytes
-	VDP_CTRL_W = 0x9000 | plane_size; // Tilemap size: 64x32
+	VDP_CTRL_W = 0x9000 | plane_size;
 	VDP_CTRL_W = 0x9100; // Hide window plane
 	VDP_CTRL_W = 0x9200; // Hide window plane
+
 	// shift in bytes per line
-	video_plane_shift = 6 + (plane_size & 3);
-	if (video_plane_shift==9)
-		video_plane_shift=8;
+	video_plane_shift = plane_shifts[plane_size & 3] + 1;
+	video_plane_width = 1 << plane_shifts[plane_size & 3];
+	video_plane_width_mask = video_plane_width-1;
+	video_plane_height = 1 << plane_shifts[plane_size >> 4];
+	video_plane_height_mask = video_plane_height-1;
+
 	// Clear first long of VSRAM
 	VDP_CTRL_L = 0x40000010;
 	VDP_DATA_L = 0;

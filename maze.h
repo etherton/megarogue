@@ -7,4 +7,4 @@ extern void maze_new_bottom_row(uint32_t off_x,uint32_t off_y);
 extern void maze_new_top_row(uint32_t off_x,uint32_t off_y);
 
 // Must be a multiple of eight
-#define MAZE_SIZE 32 
+#define MAZE_SIZE 64
