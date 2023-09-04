@@ -48,6 +48,7 @@ void video_config_window(uint8_t h,uint8_t v) {
 
 void video_enable() {
 	VDP_CTRL_W = 0x8174;	// Enable display
+	asm(".long 0x46FC2000"); // move #0x2000, sr
 }
 
 void video_upload_palette(uint8_t baseAddr,const uint16_t *palette) {

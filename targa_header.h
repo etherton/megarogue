@@ -1,3 +1,6 @@
+#include <stdint.h>
+#include <stdio.h>
+
 struct targa_header {
 	uint8_t imageIdLength; // should be zero
 	uint8_t colorMapType;	// 0=no color map, 1=color map
@@ -12,8 +15,37 @@ struct targa_header {
 };
 
 inline bool is_valid_targa_header(targa_header *h) {
-	return h->imageIdLength==0 && h->colorMapType==0 && h->imageType==2 && h->pixelDepth==32 && h->imageDescriptor == 0x28;
+	return h->imageIdLength==0 && h->colorMapType==0 && (h->imageType==2||h->imageType==10) && 
+	h->pixelDepth==32 && h->imageDescriptor == 0x28;
 }
 
-/* RLE is pretty simple; if MSB is set, repeat following "color" N+1 times. If MSB is clear, the following N+1 "colors"
-   are raw data. Either way, a color is either a single byte if it's colormapped, or 2/3/4 bytes if it's true color */
+inline uint8_t *read_targa_file(targa_header *h,FILE *f) {
+	size_t sizeBytes = (h->width * h->height * h->pixelDepth) >> 3;
+	uint8_t *result = new uint8_t[sizeBytes];
+	if (h->imageType==2)
+		return fread(result,1,sizeBytes,f)==sizeBytes?result:nullptr;
+	else {
+		/* RLE is pretty simple; if MSB is set, repeat following "color" N+1 times. 
+		   If MSB is clear, the following N+1 "colors" are raw data. Either way, a 
+		   color is either a single byte if it's colormapped, or 2/3/4 bytes if it's true color */
+		uint8_t *r = result;
+		while (!feof(f)) {
+			uint8_t count = fgetc(f);
+			if (count & 128) {
+				uint8_t a = fgetc(f), b = fgetc(f), c = fgetc(f), d = fgetc(f);
+				count = (count & 127) + 1;
+				while (count--) {
+					r[0] = a, r[1] = b, r[2] = c, r[3] = d;
+					r+=4;
+				}
+			}
+			else {
+				count = (count & 127) + 1;
+				fread(r,4,count,f);
+				r += count * 4;
+			}
+		}
+		return result;
+	}
+}
+

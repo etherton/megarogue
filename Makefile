@@ -5,7 +5,7 @@ all: fixrom mkpal megarogue.rom run
 fixrom: fixrom.cpp
 	clang fixrom.cpp -lc++ -o fixrom
 
-mkpal: mkpal.cpp
+mkpal: mkpal.cpp targa_header.h
 	clang -O3 -std=c++11 mkpal.cpp -lc++ -o mkpal
 
 maze.o: maze.c md_api.h md_math.h maze.h
@@ -18,10 +18,10 @@ start.o: start.c md_api.h md_math.h maze.h
 
 # tga_name c_name c_sym start_x start_y cell_w cell_h cells_across cells_down palette_group_cell_width palette_group_cell_height color_bits_per_channel
 
-char_tiles.c: mkpal
+char_tiles.c: mkpal oryx_16bit_fantasy_creatures_trans.tga
 	./mkpal oryx_16bit_fantasy_creatures_trans.tga char_tiles.c char 24 24 24 24 18 22 1 2 2
 
-bg_tiles.c: mkpal
+bg_tiles.c: mkpal oryx_16bit_fantasy_world_trans.tga
 	./mkpal oryx_16bit_fantasy_world_trans.tga bg_tiles.c bg 24 24 24 24 27 23 27 1 3
 
 # brew install rosco-m68k/toolchain/binutils-cross-m68k

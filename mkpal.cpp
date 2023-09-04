@@ -14,25 +14,24 @@ int main(int argc,char** argv) {
 		palette_group_cell_width = atoi(argv[10]), palette_group_cell_height = atoi(argv[11]),
 		color_bits_per_channel = atoi(argv[12]);
 		
-	FILE *tga = fopen(argv[1],"rb"); 
-	if (!tga) {
+	FILE *f = fopen(argv[1],"rb"); 
+	if (!f) {
 		fprintf(stderr,"unable to open tga '%s'\n",argv[1]);
 		return 1;
 	}
 
 	targa_header hdr;
-	fread(&hdr,sizeof(hdr),1,tga);
+	fread(&hdr,sizeof(hdr),1,f);
 	if (!is_valid_targa_header(&hdr)) {
-		fprintf(stderr,"file '%s' must be uncompressed (no RLE) 32bpp with top left origin\n",argv[1]);
+		fprintf(stderr,"file '%s' must be 32bpp (RLE or uncompressed) with top left origin\n",argv[1]);
 		return 1;
 	}
-	uint32_t sizeBytes = (hdr.width * hdr.height * hdr.pixelDepth) >> 3;
-	uint8_t *pixel_data = new uint8_t[sizeBytes];
-	if (fread(pixel_data,1,sizeBytes,tga) != sizeBytes) {
+	uint8_t *pixel_data = read_targa_file(&hdr,f);
+	if (!pixel_data) {
 		fprintf(stderr,"short read on tga file\n");
 		return 1;
 	}
-	fclose(tga);
+	fclose(f);
 	if (hdr.width < start_x + cells_across * cell_width) {
 		fprintf(stderr,"image is only %d wide but needs to be at least %d\n",hdr.width,start_x + cells_across * cell_width);
 		return 1;

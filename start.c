@@ -51,6 +51,8 @@ static void draw_pad(const char *tag,uint8_t x,uint8_t y,uint16_t attr,uint16_t 
 
 extern char _bstart[], _bend[];
 
+void Main();
+
 void _start() {
 	// MOVE to SR is 0100 0110 11xx xxxx; IM EA is 111 100; Final result is 0x46FC
 	asm(".long 0x46FC2700"); // move #0x2700, sr
@@ -63,6 +65,10 @@ void _start() {
 	while (b < _bend)
 		*b++ = 0;
 
+	Main();
+}
+
+void Main() {
 	uint8_t flags = REG_VERSION_B;
 	video_init(PLANE_SIZE_64_32);
 	video_config_window(RIGHT_OF_X_SPLIT | 17,0);
@@ -84,16 +90,16 @@ void _start() {
 	video_draw_string(video_plane_w_addr(34,4),0,"INT:09");
 	video_draw_string(video_plane_w_addr(34,6),0,"HP:010");
 
+	const int N=2;
 	video_set_vram_write_addr(0x4000);
 	for (int i=0; i<27; i++)
-		video_upload_sprite(bg_directory[i+27*2].tilePtr,9);
-	video_upload_palette(3,bg_directory[27*2].palPtr);
+		video_upload_sprite(bg_directory[i+27*N].tilePtr,9);
+	video_upload_palette(3,bg_directory[27*N].palPtr);
 	
 	maze_init();
 	maze_draw(0,0);
 
 	video_enable();
-	asm(".long 0x46FC2000"); // move #0x2000, sr
 
 	uint16_t n = 0;
 	uint32_t elapsed = 0;
