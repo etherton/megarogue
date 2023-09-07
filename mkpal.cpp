@@ -138,14 +138,13 @@ private:
 };
 
 int main(int argc,char** argv) {
-	if (argc<13) {
-		fprintf(stderr,"args: tga_name c_name c_sym start_x start_y cell_width cell_height cells_across cells_down palette_group_cell_width palette_group_cell_height color_bits_per_channel\n");
+	if (argc<12) {
+		fprintf(stderr,"args: tga_name c_name c_sym start_x start_y cell_width cell_height cells_across cells_down palette_group_cell_width palette_group_cell_height\n");
 		return 1;
 	}
 	int start_x = atoi(argv[4]), start_y = atoi(argv[5]), cell_width = atoi(argv[6]), cell_height = atoi(argv[7]), 
 		cells_across = atoi(argv[8]), cells_down = atoi(argv[9]), 
-		palette_group_cell_width = atoi(argv[10]), palette_group_cell_height = atoi(argv[11]),
-		color_bits_per_channel = atoi(argv[12]);
+		palette_group_cell_width = atoi(argv[10]), palette_group_cell_height = atoi(argv[11]);
 		
 	FILE *f = fopen(argv[1],"rb"); 
 	if (!f) {
@@ -189,21 +188,21 @@ int main(int argc,char** argv) {
 			for (int y=0; y<cell_height * palette_group_cell_height; y++) {
 				uint32_t offs = (hdr.width * (row*cell_height + start_y+y) + (col*cell_width + start_x)) * 4;
 				for (int x=0; x<cell_width * palette_group_cell_width; x++, offs+=4) 
-					p.tally(pixel_data[offs+0],pixel_data[offs+1],pixel_data[offs+2],pixel_data[offs+3]);
+					p.tally(pixel_data[offs+2],pixel_data[offs+1],pixel_data[offs+0],pixel_data[offs+3]);
 			}
 		}
 	}
 
 	// Generate all the palettes based on the sampled data
-	fprintf(cfile,"const uint16_t palettes[4][16] = {\n");
 	for (int i=0; i<4; i++) {
 		palettes[i]->median_cut(15);
-		fprintf(cfile,"\t{ ");
+		fprintf(cfile,"const uint16_t %s_palette_%u[16] = { ",c_sym,i);
 		for (int j=0; j<16; j++)
-			fprintf(cfile,"0x%04x, ",palettes[i]->finalPalette[j].encode());
-		fprintf(cfile,"},\n");
+			fprintf(cfile,"0x%03x, ",palettes[i]->finalPalette[j].encode());
+		fprintf(cfile,"};\n");
 	}
-	fprintf(cfile,"};\n\n");
+
+	std::string dirString;
 
 	// Next pass over the data is to generate the actual tiles by mapping them through the associated palette
 	// This loop is more intricate sprite tiles are 8x8 columns, then rows.
@@ -213,6 +212,7 @@ int main(int argc,char** argv) {
 			for (int pgRow=0; pgRow<palette_group_cell_height; pgRow++) {
 				for (int pgCol=0; pgCol<palette_group_cell_width; pgCol++) {
 					fprintf(cfile,"const uint32_t %s_%d_%d[] = {\n",c_sym,col+pgCol,row+pgRow);
+					dirString += std::string("{ ") + c_sym + "_" + std::to_string(col+pgCol) + "_" + std::to_string(row+pgRow) + ", " + c_sym + "_palette_" + std::to_string((row+col)&3) + " },\n";
 					for (int spCol=0; spCol<cell_width; spCol+=8) {
 						for (int spRow=0; spRow<cell_height; spRow+=8) {
 							fprintf(cfile,"\t");
@@ -221,7 +221,7 @@ int main(int argc,char** argv) {
 								uint32_t offs = (hdr.width * ((row+pgRow)*cell_height + start_y+spRow+y) + ((col+pgCol)*cell_width + start_x+spCol)) * 4;
 								for (int x=0; x<8; x++,offs+=4) {
 									pix <<= 4;
-									pix |= p.remap(pixel_data[offs+0],pixel_data[offs+1],pixel_data[offs+2],pixel_data[offs+3]);
+									pix |= p.remap(pixel_data[offs+2],pixel_data[offs+1],pixel_data[offs+0],pixel_data[offs+3]);
 								}
 								fprintf(cfile,"0x%08x,",pix);
 							}
@@ -234,5 +234,8 @@ int main(int argc,char** argv) {
 		}
 	}
 
+	fprintf(cfile,"const struct { const uint32_t *tile; const uint16_t *palette; } %s_directory[] = {\n",c_sym);
+	fprintf(cfile,"%s",dirString.c_str());
+	fprintf(cfile,"};\n\nconst uint16_t %s_directory_count = sizeof(%s_directory) / sizeof(%s_directory[0]);\n",c_sym,c_sym,c_sym);
 	fclose(cfile);
 }
