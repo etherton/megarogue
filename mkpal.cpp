@@ -1,8 +1,141 @@
 #include <map>
+#include <set>
 #include <string>
+#include <algorithm>
+#include <assert.h>
 #include <stdio.h>
 
 #include "targa_header.h"
+
+/*
+	First pass: Build up individual tile bitmaps and local palettes.
+	Randomly assign each tile to a palette.
+	Generate each final palette, convert each tile to its matching palette,
+	and track the accumulated error.
+	Place each tile into a priority queue based on accumulated error.
+	For the UNMARKED tile nearest the head of the queue:
+		1. Try changing to another palette
+		2. Rebuild that palette from scratch
+		3. Is the accumulated error for this image better than it used to be?
+	For now: 
+		Randomly assign the first 
+*/
+
+constexpr uint16_t TRANSP = 0x111;	// impossible color
+
+struct rgb { 
+	rgb() { key=0; }
+	rgb(uint8_t r_,uint8_t g_,uint8_t b_) {
+		assert(r_<64); assert(g_<64); assert(b_<64);
+		r = r_; g = g_; b = b_; pad = 0;
+	}
+	union {
+		struct { uint8_t r, g, b, pad; };
+		uint8_t bytes[4];
+		uint32_t key;
+	};
+	void min(const rgb &o) {
+		if (o.r < r) r = o.r;
+		if (o.g < g) g = o.g;
+		if (o.b < b) b = o.b;
+	}
+	void max(const rgb &o) {
+		if (o.r > r) r = o.r;
+		if (o.g > g) g = o.g;
+		if (o.b > b) b = o.b;
+	}
+	bool operator< (const rgb &that) const { 
+		return key < that.key;
+	}
+	static uint16_t round6to3(uint8_t ch,int sh) {
+		// Knock six bits down to three
+		return ch<59? ((ch+4) >> 3) << sh : 7 << sh;
+	}
+	uint16_t encode() {
+		return round6to3(b,9) | round6to3(g,5) | round6to3(r,1);
+	}
+};
+
+class palette {
+	std::set<rgb> asSet;
+	std::vector<rgb> asVector;
+	uint8_t nextColor = 0;
+	uint8_t remapColorToEntry[64][64][64] = {};
+
+	static uint8_t round8to6(uint8_t c) {
+		return c>253? 63 : (c+2)>>2;
+	}
+public:
+	rgb finalPalette[16];
+
+	void tally(uint8_t r,uint8_t g,uint8_t b,uint8_t a) {
+		if (a > 127) {
+			// Knock off two bits to save processing time (final result is only 3 bits anyway)
+			rgb e(round8to6(r),round8to6(g),round8to6(b));
+			if (asSet.insert(e).second)
+				asVector.push_back(e);
+		}
+	}
+	void median_cut(int maxColors) {
+		// Determine bounding box in color space; [mini,maxi) half-open interval
+		rgb mini(63,63,63), maxi(0,0,0);
+		for (auto &e: asVector) {
+			mini.min(e);
+			maxi.max(e);
+		}
+		maxi.r++; maxi.g++; maxi.b++;
+		printf("starting median cut, %zu(%zu) colors, ranged %d,%d,%d - %d,%d,%d\n",
+			asSet.size(),asVector.size(),mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b);
+		median_cut(mini,maxi,0,asVector.size(),maxColors);
+	}
+	uint8_t remap(uint8_t r,uint8_t g,uint8_t b,uint8_t a) {
+		return a > 127? remapColorToEntry[round8to6(r)][round8to6(g)][round8to6(b)] : 0;
+	}
+private:
+	void median_cut(const rgb &mini,const rgb &maxi,size_t start,size_t end,int maxColors) {
+		assert(maxColors);
+		if (maxColors == 1) {
+			// Assign everything in [mini,maxi) to a new color slot.
+			auto &fp = finalPalette[++nextColor];
+			assert(nextColor<=15);
+			fp.r = (mini.r + maxi.r) >> 1;
+			fp.g = (mini.g + maxi.g) >> 1;
+			fp.b = (mini.b + maxi.b) >> 1;
+			printf("map [%d,%d,%d] - (%d,%d,%d) -> %d (%d,%d,%d)\n",mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b,nextColor,fp.r,fp.g,fp.b);
+			for (int i=mini.r; i<maxi.r; i++) {
+				for (int j=mini.g; j<maxi.g; j++) {
+					for (int k=mini.b; k<maxi.b; k++) {
+						assert(remapColorToEntry[i][j][k]==0);
+						remapColorToEntry[i][j][k] = nextColor;
+					}
+				}
+			}
+			return;
+		}
+		/* identify largest axis and split that one */
+		uint8_t dR = maxi.r - mini.r;
+		uint8_t dG = maxi.g - mini.g;
+		uint8_t dB = maxi.b - mini.b;
+		uint8_t axis = 2;
+		// Slightly favor green since human eye is more perceptive to it
+		if (dG >= dR && dG >= dB)
+			axis = 1;
+		else if (dR >= dG && dR >= dB)
+			axis = 0;
+		printf("median_cut %d,%d,%d - %d,%d,%d - [%zu,%zu) - dom axis %d, %d colors\n",
+			mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b,start,end,axis,maxColors);
+		// Sort the array along the dominant axis
+		std::stable_sort(asVector.begin() + start,asVector.begin() + end,
+			[&axis](const rgb &a,const rgb &b) { return a.bytes[axis] < b.bytes[axis]; });
+		// Compute appropriate midpoints and split the box
+		size_t mid = (start + end) >> 1;
+		rgb miniMid = maxi, midMaxi = mini;
+		miniMid.bytes[axis] = midMaxi.bytes[axis] = asVector[mid].bytes[axis];
+		// Recurse and process each half region
+		median_cut(mini,miniMid,start,mid,maxColors>>1);
+		median_cut(midMaxi,maxi,mid,end,maxColors-(maxColors>>1));
+	}
+};
 
 int main(int argc,char** argv) {
 	if (argc<13) {
@@ -40,128 +173,66 @@ int main(int argc,char** argv) {
 		fprintf(stderr,"image is only %d tall but needs to be at least %d\n",hdr.height,start_y + cells_down * cell_height);
 		return 1;
 	}
+
 	FILE *cfile = fopen(argv[2],"w");
 	if (!cfile)
 		return 1;
 	const char *c_sym = argv[3];
 
-	std::map<uint16_t,uint8_t> gp;
-	std::vector<std::map<uint16_t,uint8_t>> palettes;
-	std::map<std::pair<int,int>,size_t> palette_map;
-	const uint16_t TRANSP = 0x111; // impossible color
-	int width=hdr.width, height=hdr.height;
-	uint8_t gnc = 0, dups = 0;
 	fprintf(cfile,"#include \"md_api.h\"\n");
-	std::vector<std::string> directory_entries;
+
+	// First pass over the data, assign each palette group to a different palette for now.
+	palette *palettes[4] = { new palette, new palette, new palette, new palette };
 	for (int row=0; row<cells_down; row+=palette_group_cell_height) {
 		for (int col=0; col<cells_across; col+=palette_group_cell_width) {
-			std::map<uint16_t,uint8_t> p;		
-			std::string palette_name = std::string(c_sym) + "_palette_" + std::to_string(row) + "_" + std::to_string(col);
-			uint16_t paletteArray[32] = { TRANSP };
-			p[TRANSP] = 0;
-			uint8_t nc = 0;
-			for (int sub_row=0; sub_row<palette_group_cell_height; sub_row++) {
-				for (int sub_col=0; sub_col<palette_group_cell_width; sub_col++) {
-					int base_col = start_x + (col+sub_col) * cell_width, base_row = start_y + (row+sub_row) * cell_height;
-					std::string tile_name = std::string(c_sym) + "_tiles_" + std::to_string(row+sub_row) + "_" + std::to_string(col+sub_col);
-					fprintf(cfile,"const uint32_t %s[] = {\n",tile_name.c_str());
-					directory_entries.push_back(std::string("{ ") + tile_name + ", " + palette_name	+ "},");
-					for (int xx=0; xx<cell_width; xx+=8) {
-						for (int yy=0; yy<cell_height; yy+=8) {
+			palette &p = *palettes[(row+col) & 3];
+			for (int y=0; y<cell_height * palette_group_cell_height; y++) {
+				uint32_t offs = (hdr.width * (row*cell_height + start_y+y) + (col*cell_width + start_x)) * 4;
+				for (int x=0; x<cell_width * palette_group_cell_width; x++, offs+=4) 
+					p.tally(pixel_data[offs+0],pixel_data[offs+1],pixel_data[offs+2],pixel_data[offs+3]);
+			}
+		}
+	}
+
+	// Generate all the palettes based on the sampled data
+	fprintf(cfile,"const uint16_t palettes[4][16] = {\n");
+	for (int i=0; i<4; i++) {
+		palettes[i]->median_cut(15);
+		fprintf(cfile,"\t{ ");
+		for (int j=0; j<16; j++)
+			fprintf(cfile,"0x%04x, ",palettes[i]->finalPalette[j].encode());
+		fprintf(cfile,"},\n");
+	}
+	fprintf(cfile,"};\n\n");
+
+	// Next pass over the data is to generate the actual tiles by mapping them through the associated palette
+	// This loop is more intricate sprite tiles are 8x8 columns, then rows.
+	for (int row=0; row<cells_down; row+=palette_group_cell_height) {
+		for (int col=0; col<cells_across; col+=palette_group_cell_width) {
+			palette &p = *palettes[(row+col) & 3];
+			for (int pgRow=0; pgRow<palette_group_cell_height; pgRow++) {
+				for (int pgCol=0; pgCol<palette_group_cell_width; pgCol++) {
+					fprintf(cfile,"const uint32_t %s_%d_%d[] = {\n",c_sym,col+pgCol,row+pgRow);
+					for (int spCol=0; spCol<cell_width; spCol+=8) {
+						for (int spRow=0; spRow<cell_height; spRow+=8) {
+							fprintf(cfile,"\t");
 							for (int y=0; y<8; y++) {
 								uint32_t pix = 0;
-								for (int x=0; x<8; x++) {
-									uint32_t o = (width * (base_row+yy+y) + (base_col+xx+x)) * 4;
-									int r = pixel_data[o+2];
-									int g = pixel_data[o+1];
-									int b = pixel_data[o+0];
-									int a = pixel_data[o+3];
-									int packed;
-									auto rnd = [&](int c,int s) {
-										if (c < 248) c += 15;
-										return (c>>(8-color_bits_per_channel)) << (s + 4 - color_bits_per_channel);
-									};
-									if (a < 128)
-										packed=TRANSP;
-									else
-										packed = rnd(b,8) | rnd(g,4) | rnd(r,0);
-									if (p.find(packed) == p.end()) {
-										paletteArray[++nc] = packed;
-										p[packed] = nc;
-									}
+								uint32_t offs = (hdr.width * ((row+pgRow)*cell_height + start_y+spRow+y) + ((col+pgCol)*cell_width + start_x+spCol)) * 4;
+								for (int x=0; x<8; x++,offs+=4) {
 									pix <<= 4;
-									pix |= (p[packed]);
-									if (gp.find(packed) == gp.end())
-										gp[packed] = ++gnc;
+									pix |= p.remap(pixel_data[offs+0],pixel_data[offs+1],pixel_data[offs+2],pixel_data[offs+3]);
 								}
 								fprintf(cfile,"0x%08x,",pix);
 							}
 							fprintf(cfile,"\n");
 						}
 					}
-					fprintf(cfile,"};\n");
+					fprintf(cfile,"};\n\n");
 				}
 			}
-			fprintf(cfile,"const uint16_t %s[16] = {",palette_name.c_str());
-			for (int i=0; i<16; i++) fprintf(cfile,"0x%03x,",paletteArray[i]);
-			fprintf(cfile,"};\n\n");
-			printf("block %d,%d has %d colors: ",row,col,nc);
-			for (auto &a: p)
-				printf("%03x ",a.first);
-			printf("\n");
 		}
 	}
-	printf("total %d colors\n",gnc);
-	printf("%d dupes\n",dups);
 
-	fprintf(cfile,"const struct directory { const uint32_t *tilePtr; const uint16_t *palPtr; } %s_directory[] = {\n",c_sym);
-	for (auto &d: directory_entries)
-		fprintf(cfile,"%s\n",d.c_str());
-	fprintf(cfile,"};\nconst uint16_t %s_directory_count = sizeof(%s_directory) / sizeof(%s_directory[0]);\n",c_sym,c_sym,c_sym);
 	fclose(cfile);
-
-#if 0
-	size_t it=0, stop=1ULL << palettes.size();
-	// try to fit everything into two palettes by brute force
-	int lastPct = 0;
-	uint8_t best[2] = {0,0};
-	while (it != stop) {
-		int pct = (int)(it * 100 / stop);
-		if (pct != lastPct) {
-			printf("%d%% complete %d/%d best\r",lastPct=pct,best[0],best[1]);
-			fflush(stdout);
-		}
-		std::map<uint16_t,uint8_t> pals[2];
-		pals[0][TRANSP] = 0;
-		pals[1][TRANSP] = 0;
-		uint8_t nc[2] = { 0,0 };
-
-		auto isClose = [](uint16_t a,uint16_t b) {
-			if (a==b) return true;
-			return (abs((a >> 9) - (b >> 9)) + abs(((a >> 5) & 7) - ((b >> 5) & 7)) + abs(((a >> 1) & 7) - ((b >> 1) & 7)) <= 2);
-		};
-		for (size_t i=0; i<palettes.size(); i++) {
-			size_t which = (it >> i) & 1;
-			for (auto &a: palettes[i]) {
-				bool found = false;
-				for (auto &b: pals[which]) {
-					if (isClose(a.first,b.first)) {
-						found = true;
-						break;
-					}
-				}
-				if (!found)
-					pals[which][a.first] = ++nc[which];
-			}
-		}
-		if (nc[0]<=15 && nc[1]<=15) {
-			printf("got a fit in %zx\n",it);
-			break;
-		}
-		if (nc[0]*nc[1]>best[0]*best[1]) best[0]=nc[0],best[1]=nc[1];
-		++it;
-	}
-#endif
-	return 0;
-
 }
