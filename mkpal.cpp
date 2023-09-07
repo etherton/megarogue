@@ -98,17 +98,26 @@ private:
 			// Assign everything in [mini,maxi) to a new color slot.
 			auto &fp = finalPalette[++nextColor];
 			assert(nextColor<=15);
-			fp.r = (mini.r + maxi.r) >> 1;
-			fp.g = (mini.g + maxi.g) >> 1;
-			fp.b = (mini.b + maxi.b) >> 1;
-			printf("map [%d,%d,%d] - (%d,%d,%d) -> %d (%d,%d,%d)\n",mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b,nextColor,fp.r,fp.g,fp.b);
+			int rSum = 0, gSum = 0, bSum = 0, found = 0;
 			for (int i=mini.r; i<maxi.r; i++) {
 				for (int j=mini.g; j<maxi.g; j++) {
 					for (int k=mini.b; k<maxi.b; k++) {
+						if (asSet.find(rgb(i,j,k)) != asSet.end())
+							rSum += i, gSum += j, bSum += k, ++found;
 						assert(remapColorToEntry[i][j][k]==0);
 						remapColorToEntry[i][j][k] = nextColor;
 					}
 				}
+			}
+			if (found) {
+				fp.r = rSum / found;
+				fp.g = gSum / found;
+				fp.b = bSum / found;
+				printf("map [%d,%d,%d] - (%d,%d,%d) -> %d (%d,%d,%d)\n",mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b,nextColor,fp.r,fp.g,fp.b);
+			}
+			else {
+				printf("map [%d,%d,%d] - (%d,%d,%d) contains no colors?\n",mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b);
+				--nextColor;
 			}
 			return;
 		}
