@@ -1,0 +1,9 @@
+# filename c_name c_sym tile_width tile_height first_col first_row num_col num_row
+# the files are not included because of license restrictions
+# obtain them from oryxdesignlab.com, and save the original _trans.png files out as
+# 32bpp targa files with a top-left origin (either no compression or simple RLE should work)
+oryx_16bit_fantasy_creatures_trans.tga char_tiles.c chars 24 24 1 1 18 22
+oryx_16bit_fantasy_world_trans.tga wall_tiles.c walls 24 24 1 1 27 23
+oryx_16bit_fantasy_world_trans.tga decor_tiles.c decor 24 24 29 1 14 10
+oryx_16bit_fantasy_items_trans.tga item_tiles.c items 16 16 1 1 22 14
+oryx_16bit_fantasy_fx_trans.tga fx_tiles.c fx 24 24 1 1 10 20
