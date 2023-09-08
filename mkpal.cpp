@@ -21,8 +21,6 @@
 		Randomly assign the first 
 */
 
-constexpr uint16_t TRANSP = 0x111;	// impossible color
-
 struct rgb { 
 	rgb() { key=0; }
 	rgb(uint8_t r_,uint8_t g_,uint8_t b_) {
@@ -57,10 +55,9 @@ struct rgb {
 };
 
 class palette {
-	std::set<rgb> asSet;
+	std::map<rgb,uint8_t> asMap;
 	std::vector<rgb> asVector;
 	uint8_t nextColor = 0;
-	uint8_t remapColorToEntry[64][64][64] = {};
 
 	static uint8_t round8to6(uint8_t c) {
 		return c>253? 63 : (c+2)>>2;
@@ -72,7 +69,7 @@ public:
 		if (a > 127) {
 			// Knock off two bits to save processing time (final result is only 3 bits anyway)
 			rgb e(round8to6(r),round8to6(g),round8to6(b));
-			if (asSet.insert(e).second)
+			if (asMap.insert(std::pair<rgb,uint8_t>(e,255)).second)
 				asVector.push_back(e);
 		}
 	}
@@ -83,13 +80,17 @@ public:
 			mini.min(e);
 			maxi.max(e);
 		}
+		// Make upper bound exclusive
 		maxi.r++; maxi.g++; maxi.b++;
 		printf("starting median cut, %zu(%zu) colors, ranged %d,%d,%d - %d,%d,%d\n",
-			asSet.size(),asVector.size(),mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b);
+			asMap.size(),asVector.size(),mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b);
 		median_cut(mini,maxi,0,asVector.size(),maxColors);
 	}
 	uint8_t remap(uint8_t r,uint8_t g,uint8_t b,uint8_t a) {
-		return a > 127? remapColorToEntry[round8to6(r)][round8to6(g)][round8to6(b)] : 0;
+		if (a < 128)
+			return 0;
+		rgb e(round8to6(r),round8to6(g),round8to6(b));
+		return asMap.find(e)->second;
 	}
 private:
 	void median_cut(const rgb &mini,const rgb &maxi,size_t start,size_t end,int maxColors) {
@@ -98,27 +99,19 @@ private:
 			// Assign everything in [mini,maxi) to a new color slot.
 			auto &fp = finalPalette[++nextColor];
 			assert(nextColor<=15);
+			assert(end>start);
 			int rSum = 0, gSum = 0, bSum = 0, found = 0;
-			for (int i=mini.r; i<maxi.r; i++) {
-				for (int j=mini.g; j<maxi.g; j++) {
-					for (int k=mini.b; k<maxi.b; k++) {
-						if (asSet.find(rgb(i,j,k)) != asSet.end())
-							rSum += i, gSum += j, bSum += k, ++found;
-						assert(remapColorToEntry[i][j][k]==0);
-						remapColorToEntry[i][j][k] = nextColor;
-					}
-				}
+			for (size_t i=start; i<end; i++) {
+				asMap[asVector[i]] = nextColor;
+				rSum += asVector[i].r;
+				gSum += asVector[i].g;
+				bSum += asVector[i].b;
 			}
-			if (found) {
-				fp.r = rSum / found;
-				fp.g = gSum / found;
-				fp.b = bSum / found;
-				printf("map [%d,%d,%d] - (%d,%d,%d) -> %d (%d,%d,%d)\n",mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b,nextColor,fp.r,fp.g,fp.b);
-			}
-			else {
-				printf("map [%d,%d,%d] - (%d,%d,%d) contains no colors?\n",mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b);
-				--nextColor;
-			}
+			int delta = (int)(end - start);
+			fp.r = rSum / delta;
+			fp.g = gSum / delta;
+			fp.b = bSum / delta;
+			printf("map [%d,%d,%d] - (%d,%d,%d) -> %d (%d,%d,%d)\n",mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b,nextColor,fp.r,fp.g,fp.b);
 			return;
 		}
 		/* identify largest axis and split that one */
@@ -140,9 +133,11 @@ private:
 		size_t mid = (start + end) >> 1;
 		rgb miniMid = maxi, midMaxi = mini;
 		miniMid.bytes[axis] = midMaxi.bytes[axis] = asVector[mid].bytes[axis];
-		// Recurse and process each half region
-		median_cut(mini,miniMid,start,mid,maxColors>>1);
-		median_cut(midMaxi,maxi,mid,end,maxColors-(maxColors>>1));
+		// Recurse and process each half region, but only if it isn't empty
+		if (mid>start)
+			median_cut(mini,miniMid,start,mid,maxColors>>1);
+		if (end>mid)
+			median_cut(midMaxi,maxi,mid,end,maxColors-(maxColors>>1));
 	}
 };
 
