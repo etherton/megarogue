@@ -1,4 +1,3 @@
-#include <map>
 #include <set>
 #include <string>
 #include <algorithm>
@@ -7,7 +6,7 @@
 
 #include "targa_header.h"
 
-int debug = 2;
+int debug = 0;
 
 // map sqrt(i) to fixed point 4.4
 const uint8_t sqrt_tab[49+49+49+1] = {
@@ -205,7 +204,7 @@ int main(int argc,char** argv) {
 	struct tile;
 	struct sharedPalette: public palette {
 		std::vector<uint32_t> clients; // List of clients using this palette
-		uint8_t selfIndex;
+		uint8_t selfIndex = 0;
 	};
 	std::vector<sharedPalette*> sharedPalettes;
 	struct tile {
@@ -278,13 +277,13 @@ int main(int argc,char** argv) {
 				p.median_cut(15);
 				if (p.nextColor) {
 					tile t;
-					t.sp = new sharedPalette(p);
 					p.clients.push_back(tiles.size());
+					t.sp = new sharedPalette(std::move(p));
 					t.offset = base;
 					t.workItem = workItems.size();
 					t.row = r; t.col = c;
-					tiles.push_back(std::move(t));
 					sharedPalettes.push_back(t.sp);
+					tiles.push_back(std::move(t));
 				}
 			}
 		}
@@ -303,14 +302,37 @@ int main(int argc,char** argv) {
 
 	printf("%zu non-empty tiles found across %zu files\n",tiles.size(),workItems.size());
 
+	auto validate = [&](int line) {
+		bool *b = (bool*)alloca(tiles.size());
+		memset(b,0,tiles.size());
+		for (auto &sp: sharedPalettes) {
+			for (auto &t: sp->clients) {
+				assert(t < tiles.size());
+				assert(b[t] == false);
+				assert(tiles[t].sp == sp);
+				b[t] = true;
+			}
+		}
+		bool *c = (bool*)memchr(b,false,tiles.size());
+		if (c) {
+			printf("tile %zu orphaned? (line %d)\n",c-b,line);
+			assert(false);
+		}
+	};
+
+	validate(__LINE__);
+
 	// Initial pass to get our working set size down; look only for palettes that are subsets
 	for (size_t i=0; i<sharedPalettes.size(); i++) {
 		for (size_t j=0; j<sharedPalettes.size();) {
 			if (i!=j && sharedPalettes[j]->computeDistanceTo(*sharedPalettes[i]) == 0) {
+				if (debug) printf("palette %zu is a subset of palette %zu\n",j,i);
 				// Transfer all clients from j to i
+				validate(__LINE__);
 				while (sharedPalettes[j]->clients.size()) {
 					auto t = sharedPalettes[j]->clients.back();
 					sharedPalettes[i]->clients.push_back(t);
+					assert(tiles[t].sp == sharedPalettes[j]);
 					tiles[t].sp = sharedPalettes[i];
 					sharedPalettes[j]->clients.pop_back();
 				}
@@ -319,10 +341,12 @@ int main(int argc,char** argv) {
 				sharedPalettes.erase(sharedPalettes.begin() + j);
 				if (i > j)
 					--i;
+				validate(__LINE__);
 			}
 			else
 				++j;
 		}
+		validate(__LINE__);
 	}
 	printf("%zu palettes remain after initial pass\n",sharedPalettes.size());
 
@@ -339,7 +363,7 @@ int main(int argc,char** argv) {
 				}
 			}
 		}
-		printf("merging palette %zu into palette %zu\n",bestJ,bestI);
+		if (debug>1) printf("merging palette %zu into palette %zu\n",bestJ,bestI);
 		// Transfer all clients from bestJ to bestI 
 		while (sharedPalettes[bestJ]->clients.size()) {
 			auto t = sharedPalettes[bestJ]->clients.back();
@@ -352,10 +376,15 @@ int main(int argc,char** argv) {
 		delete sharedPalettes[bestJ];
 		sharedPalettes.erase(sharedPalettes.begin() + bestJ);
 
+		validate(__LINE__);
+
 		// If it wasn't a proper subset, we need to (for best results!) regenerate the entire shared palette
 		if (bestDist) {
 		}
 	}
+	nPal = sharedPalettes.size();
+	printf("reduced to %zu palettes\n",sharedPalettes.size());
+
 
 	FILE *cfile = fopen(argv[2],"w");
 	if (!cfile) {
@@ -375,11 +404,11 @@ int main(int argc,char** argv) {
 
 	std::string dirString;
 	for (auto &t: tiles) {
-		palette &p = *t.sp;
+		sharedPalette &p = *t.sp;
 		workItem &w = workItems[t.workItem];
 		fprintf(cfile,"const uint32_t %s_%d_%d[] = {\n",w.c_sym,t.col,t.row);
 		dirString += std::string("{ ") + w.c_sym + "_" + std::to_string(t.col) + "_" + std::to_string(t.row) + 
-			", palette_" + std::to_string(t.sp->selfIndex) +  " },\n";
+			", palette_" + std::to_string(p.selfIndex) +  " },\n";
 		for (int c=0; c<w.tileWidth; c+=8) {
 			for (int r=0; r<w.tileHeight; r+=8) {
 				fprintf(cfile,"\t");
