@@ -64,13 +64,19 @@ void _start() {
 	Main();
 }
 
+uint16_t get_palette(uint32_t *t) {
+	if ((size_t)t > (size_t)tiles_palette_2)
+		return (size_t)t > (size_t)tiles_palette_3? NT_PALETTE_3 : NT_PALETTE_2;
+	else
+		return (size_t)t > (size_t)tiles_palette_1? NT_PALETTE_1 : NT_PALETTE_0;
+}
+
 void Main() {
 	uint8_t flags = REG_VERSION_B;
 	video_init(PLANE_SIZE_64_32);
 	video_config_window(RIGHT_OF_X_SPLIT | 17,0);
 
 	// asm volatile("move #$2000,sr");
-	video_upload_palette(0, pal);
 
 	video_set_vram_write_addr(0);
 	video_upload_bitmap_font(&font8x8_basic[0][0],8 * 128,0x0,0x7);
@@ -86,10 +92,21 @@ void Main() {
 	video_draw_string(video_plane_w_addr(34,4),0,"INT:09");
 	video_draw_string(video_plane_w_addr(34,6),0,"HP:010");
 
-	const int N=2;
+	video_upload_palette(0,tiles_palette_0);
+	video_upload_palette(1,tiles_palette_1);
+	video_upload_palette(2,tiles_palette_2);
+	video_upload_palette(3,tiles_palette_3);
 	video_set_vram_write_addr(0x4000);
-	video_upload_sprite(walls_0_2,9*27);
-	video_upload_palette(3,bg_directory[27*N].palPtr);
+	video_upload_sprite(walls_0_2,9);
+	video_upload_sprite(walls_1_2,9);
+	video_upload_sprite(walls_2_2,9);
+	video_upload_sprite(walls_3_2,9);
+	video_upload_sprite(walls_4_2,9);
+	video_upload_sprite(walls_5_2,9);
+	video_upload_sprite(walls_6_2,9);
+	video_upload_sprite(walls_7_2,9);
+	video_upload_sprite(walls_8_2,9);
+	video_upload_sprite(walls_9_2,9);
 	
 	maze_init();
 	maze_draw(0,0);
@@ -119,12 +136,10 @@ void Main() {
 		video_set_vram_write_addr(0xF000);
 		VDP_DATA_W = 128 + 50 + ((elapsed >> 13) & 127);
 		VDP_DATA_W = 0x0A00;
-		VDP_DATA_W = NT_PALETTE_1 | 256;
+		VDP_DATA_W = get_palette(chars_0_0) | 256;
 		VDP_DATA_W = 128 + 20 + ((elapsed >> 12) & 255);
-		uint16_t ti = modulo(elapsed >> 12, char_directory_count);
-		video_upload_palette(1,char_directory[ti].palPtr);
 		video_set_vram_write_addr(0x2000);
-		video_upload_sprite(char_directory[ti].tilePtr,9);
+		video_upload_sprite(chars_0_0,9);
 
 		video_set_vram_write_addr(0xF802);
 		VDP_DATA_W = -off_x;
