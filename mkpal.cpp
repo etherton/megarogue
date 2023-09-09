@@ -385,52 +385,57 @@ int main(int argc,char** argv) {
 	nPal = sharedPalettes.size();
 	printf("reduced to %zu palettes\n",sharedPalettes.size());
 
-
-	FILE *cfile = fopen(argv[2],"w");
+	char buf[64];
+	snprintf(buf,sizeof(buf),"%s.c",argv[2]);
+	FILE *cfile = fopen(buf,"w");
 	if (!cfile) {
-		fprintf(stderr,"cannot create output file %s\n",argv[2]);
+		fprintf(stderr,"cannot create output file %s\n",buf);
+		return 1;
+	}
+	snprintf(buf,sizeof(buf),"%s.h",argv[2]);
+	FILE *hfile = fopen(buf,"w");
+	if (!hfile) {
+		fprintf(stderr,"cannot create output file %s\n",buf);
 		return 1;
 	}
 
 	fprintf(cfile,"#include \"md_api.h\"\n");
+	fprintf(cfile,"#include \"%s.h\"\n",argv[2]);
 
 	for (int i=0; i<nPal; i++) {
-		sharedPalettes[i]->selfIndex = i;
-		fprintf(cfile,"const uint16_t palette_%u[16] = { ",i);
+		auto &p = *sharedPalettes[i];
+		p.selfIndex = i;
+		fprintf(cfile,"const uint16_t %s_palette_%d[16] = { ",argv[2],i);
 		for (int j=0; j<16; j++)
-			fprintf(cfile,"0x%03x,",sharedPalettes[i]->finalPalette[j].encode());
+			fprintf(cfile,"0x%03x,",p.finalPalette[j].encode());
 		fprintf(cfile,"};\n");
-	}
+		fprintf(hfile,"extern const uint16_t %s_palette_%d[];\n",argv[2],i);
 
-	std::string dirString;
-	for (auto &t: tiles) {
-		sharedPalette &p = *t.sp;
-		workItem &w = workItems[t.workItem];
-		fprintf(cfile,"const uint32_t %s_%d_%d[] = {\n",w.c_sym,t.col,t.row);
-		dirString += std::string("{ ") + w.c_sym + "_" + std::to_string(t.col) + "_" + std::to_string(t.row) + 
-			", palette_" + std::to_string(p.selfIndex) +  " },\n";
-		for (int c=0; c<w.tileWidth; c+=8) {
-			for (int r=0; r<w.tileHeight; r+=8) {
-				fprintf(cfile,"\t");
-				for (int y=0; y<8; y++) {
-					uint32_t pix = 0;
-					uint32_t o = t.offset + 4 * (w.imageWidth*(r+y) + c);
-					for (int x=0; x<8; x++,o+=4) {
-						pix <<= 4;
-						pix |= p.remap(w.pixelData[o+2],w.pixelData[o+1],w.pixelData[o+0],w.pixelData[o+3]);
+		for (auto ti: p.clients) {
+			auto &t = tiles[ti];
+			workItem &w = workItems[t.workItem];
+			std::string thisOne = std::string(w.c_sym) + "_" + std::to_string(t.col) + "_" + std::to_string(t.row);
+			fprintf(cfile,"const uint32_t %s[] = {\n",thisOne.c_str());
+			for (int c=0; c<w.tileWidth; c+=8) {
+				for (int r=0; r<w.tileHeight; r+=8) {
+					fprintf(cfile,"\t");
+					for (int y=0; y<8; y++) {
+						uint32_t pix = 0;
+						uint32_t o = t.offset + 4 * (w.imageWidth*(r+y) + c);
+						for (int x=0; x<8; x++,o+=4) {
+							pix <<= 4;
+							pix |= p.remap(w.pixelData[o+2],w.pixelData[o+1],w.pixelData[o+0],w.pixelData[o+3]);
+						}
+						fprintf(cfile,"0x%08x,",pix);
 					}
-					fprintf(cfile,"0x%08x,",pix);
+					fprintf(cfile,"\n");
 				}
-				fprintf(cfile,"\n");
 			}
+			fprintf(cfile,"};\n\n");
+			fprintf(hfile,"extern const uint32_t %s[];\n",thisOne.c_str());
 		}
-		fprintf(cfile,"};\n\n");
 	}
-
-	const char *c_sym = "master";
-	fprintf(cfile,"const struct { const uint32_t *tile; const uint16_t *palette; } %s_directory[] = {\n",c_sym);
-	fprintf(cfile,"%s",dirString.c_str());
-	fprintf(cfile,"};\n\nconst uint16_t %s_directory_count = sizeof(%s_directory) / sizeof(%s_directory[0]);\n",c_sym,c_sym,c_sym);
 	fclose(cfile);
+	fclose(hfile);
 	return 0;
 }

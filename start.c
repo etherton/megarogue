@@ -3,6 +3,7 @@
 #include <stddef.h>
 
 #include "maze.h"
+#include "tiles.h"
 
 #include "font8x8_basic.h"
 
@@ -15,11 +16,6 @@ volatile uint8_t vbi;
 volatile uint32_t __halt1, __halt2;
 
 const uint16_t pal[16] = { 0x0E00, 0x0222, 0x0444, 0x0666, 0x0888, 0x0AAA, 0x0CCC, 0x0EEE, 0x0000, 0x000E, 0x00E0, 0x00EE, 0x0E00, 0x0E0E, 0x0EE0, 0x0EEE, };
-
-struct directory { const uint32_t *tilePtr; const uint16_t *palPtr; };
-extern const struct directory char_directory[], bg_directory[];;
-extern const uint16_t char_directory_count;
-extern const uint16_t bg_directory_count;
 
 void interrupt_h() {
 	asm("rte");
@@ -92,8 +88,7 @@ void Main() {
 
 	const int N=2;
 	video_set_vram_write_addr(0x4000);
-	for (int i=0; i<27; i++)
-		video_upload_sprite(bg_directory[i+27*N].tilePtr,9);
+	video_upload_sprite(walls_0_2,9*27);
 	video_upload_palette(3,bg_directory[27*N].palPtr);
 	
 	maze_init();
