@@ -12,9 +12,9 @@ int debug = 0;
 const uint8_t sqrt_tab[49+49+49+1] = {
 	0,16,23,28,32,36,39,42,45,48,51,53,55,58,60,62,64,66,68,70,72,73,75,77,78,80,82,83,85,86,88,89,91,92,93,95,96,
 	97,99,100,101,102,104,105,106,107,109,110,111,112,113,114,115,116,118,119,120,121,122,123,124,125,126,127,128,
-	129,130,131, 132,133,134,135,136,137,138,139,139,140,141,142,143,144,145,146,147,148,148,149,150,151,152,153,
+	129,130,131,132,133,134,135,136,137,138,139,139,140,141,142,143,144,145,146,147,148,148,149,150,151,152,153,
 	153,154,155,156,157,158,158,159,160,161,162,162,163,164,165,166,166,167,168,169,169,170,171,172,172,173,174,175,
-	175,176,177,177,178,179, 180,180,181,182,182,183,184,185,185,186,187,187,188,189,189,190,191,191,192,193,193,194,
+	175,176,177,177,178,179,180,180,181,182,182,183,184,185,185,186,187,187,188,189,189,190,191,191,192,193,193,194,
 };
 
 struct rgb { 
@@ -41,12 +41,9 @@ struct rgb {
 	bool operator< (const rgb &that) const { 
 		return key < that.key;
 	}
-	static uint16_t round6to3(uint8_t ch) {
-		// Knock six bits down to three
-		return ch<59? ((ch+4) >> 3) : 7;
-	}
 	uint16_t encode() const {
-		return (b << 9) | (g << 5) | (b << 1);
+		assert(r<8&&g<8&&b<8);
+		return ((uint16_t)b << 9) | ((uint16_t)g << 5) | ((uint16_t)b << 1);
 	}
 };
 
@@ -58,6 +55,10 @@ class palette {
 
 	static uint8_t round8to6(uint8_t c) {
 		return c>253? 63 : (c+2)>>2;
+	}
+	static uint16_t round6to3(uint8_t ch) {
+		// Knock six bits down to three
+		return ch<59? ((ch+4) >> 3) : 7;
 	}
 	static uint8_t round8to3(uint8_t c) {
 		return c>239? 7 : (c+16)>>5;
@@ -93,8 +94,12 @@ public:
 		}
 		// Make upper bound exclusive
 		maxi.r++; maxi.g++; maxi.b++;
-		if (debug) printf("starting median cut, %zu(%zu) colors, ranged %d,%d,%d - %d,%d,%d\n",
-			asSet.size(),asVector.size(),mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b);
+		if (debug) {
+			printf("starting median cut, %zu(%zu) colors, ranged %d,%d,%d - %d,%d,%d\n",
+				asSet.size(),asVector.size(),mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b);
+			for (auto &e: asVector)
+				printf("    color: %d,%d,%d (%d,%d,%d)\n",e.r,e.g,e.b,round6to3(e.r),round6to3(e.g),round6to3(e.b));
+		}
 		median_cut(mini,maxi,0,asVector.size(),maxColors);
 		compute_distance_field();
 	}
@@ -109,6 +114,7 @@ public:
 		// For each color in our palette look up the distance to any nearest color
 		for (int i=1; i<=nextColor; i++) {
 			auto &e = finalPalette[i];
+			assert(e.r<8&&e.g<8&&e.b<8);
 			t += that.nearestDist[e.r][e.g][e.b];
 		}
 		return t;
@@ -122,7 +128,7 @@ private:
 		auto sqr = [](int x) { return x * x; };
 		// Could parallelize this; each slice is independent of any other
 		for (uint8_t c=1; c<=nextColor; c++) {
-			rgb &e = finalPalette[c];
+			const rgb &e = finalPalette[c];
 			assert(e.r < 8 && e.g < 8 && e.b < 8);
 			for (uint8_t i=0; i<8; i++) {
 				for (uint8_t j=0; j<8; j++) {
@@ -138,15 +144,23 @@ private:
 				}
 			}
 		}
+		
+		// sanity check the results
+		for (uint8_t c=1; c<=nextColor; c++) {
+			const rgb &e = finalPalette[c];
+			// printf("c: %d rgb %d,%d,%d nI=%d nD=%f\n",c,e.r,e.g,e.b,nearestIndex[e.r][e.g][e.b],nearestDist[e.r][e.g][e.b]/16.0f);
+			assert(nearestIndex[e.r][e.g][e.b] == c);
+			assert(nearestDist[e.r][e.g][e.b] == 0);
+		}
 	}
 	void median_cut(const rgb &mini,const rgb &maxi,size_t start,size_t end,int maxColors) {
 		assert(maxColors);
 		if (maxColors == 1) {
 			// Assign everything in [mini,maxi) to a new color slot.
-			auto &fp = finalPalette[++nextColor];
+			auto &fp = finalPalette[nextColor+1];
 			assert(nextColor<=15);
 			assert(end>start);
-			int rSum = 0, gSum = 0, bSum = 0, found = 0;
+			int rSum = 0, gSum = 0, bSum = 0;
 			for (size_t i=start; i<end; i++) {
 				rSum += asVector[i].r;
 				gSum += asVector[i].g;
@@ -154,9 +168,14 @@ private:
 			}
 			int delta = (int)(end - start);
 			// Round the final color down now so that distance computations are coarser.
-			fp.r = rgb::round6to3(rSum / delta);
-			fp.g = rgb::round6to3(gSum / delta);
-			fp.b = rgb::round6to3(bSum / delta);
+			fp.r = round6to3(rSum / delta);
+			fp.g = round6to3(gSum / delta);
+			fp.b = round6to3(bSum / delta);
+			// Make sure we didn't duplicate an existing palette slot
+			for (int i=1; i<=nextColor; i++)
+				if (fp.key==finalPalette[i].key)
+					return;
+			++nextColor;
 			if (debug>1) printf("map [%d,%d,%d] - (%d,%d,%d) -> %d (%d,%d,%d)\n",mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b,nextColor,fp.r,fp.g,fp.b);
 			return;
 		}
@@ -380,6 +399,22 @@ int main(int argc,char** argv) {
 
 		// If it wasn't a proper subset, we need to (for best results!) regenerate the entire shared palette
 		if (bestDist) {
+			auto &p = *sharedPalettes[bestI];
+			p.reset();
+			for (auto ti: p.clients) {
+				auto &t = tiles[ti];
+				auto &i = workItems[t.workItem];
+				for (int r=0; r<i.numRows; r++) {
+					for (int c=0; c<i.numCols; c++) {
+						for (int y=0; y<i.tileHeight; y++) {
+							uint32_t o = t.offset + 4 * y * i.imageWidth;
+							for (int x=0; x<i.tileWidth; x++, o+=4)
+								p.tally(i.pixelData[o+2],i.pixelData[o+1],i.pixelData[o+0],i.pixelData[o+3]);
+						}
+					}
+				}
+			}
+			p.median_cut(15);
 		}
 	}
 	nPal = sharedPalettes.size();

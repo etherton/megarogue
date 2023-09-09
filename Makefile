@@ -6,7 +6,7 @@ fixrom: fixrom.cpp
 	clang fixrom.cpp -lc++ -o fixrom
 
 mkpal: mkpal.cpp targa_header.h
-	clang -O3 -std=c++11 mkpal.cpp -lc++ -o mkpal
+	clang -Wall -O3 -std=c++11 mkpal.cpp -lc++ -o mkpal
 
 maze.o: maze.c md_api.h md_math.h maze.h
 

@@ -64,7 +64,7 @@ void _start() {
 	Main();
 }
 
-uint16_t get_palette(uint32_t *t) {
+uint16_t get_palette(const uint32_t *t) {
 	if ((size_t)t > (size_t)tiles_palette_2)
 		return (size_t)t > (size_t)tiles_palette_3? NT_PALETTE_3 : NT_PALETTE_2;
 	else
@@ -97,16 +97,16 @@ void Main() {
 	video_upload_palette(2,tiles_palette_2);
 	video_upload_palette(3,tiles_palette_3);
 	video_set_vram_write_addr(0x4000);
-	video_upload_sprite(walls_0_2,9);
-	video_upload_sprite(walls_1_2,9);
-	video_upload_sprite(walls_2_2,9);
-	video_upload_sprite(walls_3_2,9);
-	video_upload_sprite(walls_4_2,9);
-	video_upload_sprite(walls_5_2,9);
-	video_upload_sprite(walls_6_2,9);
-	video_upload_sprite(walls_7_2,9);
-	video_upload_sprite(walls_8_2,9);
-	video_upload_sprite(walls_9_2,9);
+	video_upload_sprite(walls_0_0,9);
+	video_upload_sprite(walls_1_0,9);
+	video_upload_sprite(walls_2_0,9);
+	video_upload_sprite(walls_3_0,9);
+	video_upload_sprite(walls_4_0,9);
+	video_upload_sprite(walls_5_0,9);
+	video_upload_sprite(walls_6_0,9);
+	video_upload_sprite(walls_7_0,9);
+	video_upload_sprite(walls_8_0,9);
+	video_upload_sprite(walls_9_0,9);
 	
 	maze_init();
 	maze_draw(0,0);
