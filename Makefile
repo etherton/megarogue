@@ -16,16 +16,14 @@ video.o: video.c md_api.h
 
 start.o: start.c md_api.h md_math.h maze.h
 
-# tga_name c_name c_sym start_x start_y cell_w cell_h cells_across cells_down palette_group_cell_width palette_group_cell_height color_bits_per_channel
-
-char_tiles.c: mkpal tile_manifest.txt
-	./mkpal tile_manifest.txt
+tiles.c: mkpal tile_manifest.txt
+	./mkpal tile_manifest.txt tiles.c 4
 
 # brew install rosco-m68k/toolchain/binutils-cross-m68k
 # brew install rosco-m68k/toolchain/gcc-cross-m68k@13  
 # fnotree... stops the compiler from synthesizing non-existent calls to memset/memcpy
 
-OBJS = vectors.o header.o start.o joypad.o video.o char_tiles.o bg_tiles.o maze.o
+OBJS = vectors.o header.o start.o joypad.o video.o tiles.o maze.o
 
 %.o: %.c
 	/opt/homebrew/bin/m68k-elf-gcc -DNDEBUG -Wno-multichar -march=68000 -fno-tree-loop-distribute-patterns -O1 -c $<

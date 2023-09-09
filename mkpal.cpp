@@ -7,29 +7,15 @@
 
 #include "targa_header.h"
 
-/*
-	First pass: Build up individual tile bitmaps and local palettes.
-	Randomly assign each tile to a palette.
-	Generate each final palette, convert each tile to its matching palette,
-	and track the accumulated error.
-	Place each tile into a priority queue based on accumulated error.
-	For the UNMARKED tile nearest the head of the queue:
-		1. Try changing to another palette
-		2. Rebuild that palette from scratch
-		3. Is the accumulated error for this image better than it used to be?
-	For now: 
-		Randomly assign the first 
-*/
-
 int debug = 2;
 
 // map sqrt(i) to fixed point 4.4
 const uint8_t sqrt_tab[49+49+49+1] = {
-	0,16,23,28,32,36,39,42,45,48,51,53,55,58,60,62,64,66,68,70,72,73,75,77,78,80,82,83,85,86,88,89,91,92,93,95,96,97,99,
-	100,101,102,104,105,106,107,109,110,111,112,113,114,115,116,118,119,120,121,122,123,124,125,126,127,128,129,130,131,
-	132,133,134,135,136,137,138,139,139,140,141,142,143,144,145,146,147,148,148,149,150,151,152,153,153,154,155,156,157,
-	158,158,159,160,161,162,162,163,164,165,166,166,167,168,169,169,170,171,172,172,173,174,175,175,176,177,177,178,179,
-	180,180,181,182,182,183,184,185,185,186,187,187,188,189,189,190,191,191,192,193,193,194,
+	0,16,23,28,32,36,39,42,45,48,51,53,55,58,60,62,64,66,68,70,72,73,75,77,78,80,82,83,85,86,88,89,91,92,93,95,96,
+	97,99,100,101,102,104,105,106,107,109,110,111,112,113,114,115,116,118,119,120,121,122,123,124,125,126,127,128,
+	129,130,131, 132,133,134,135,136,137,138,139,139,140,141,142,143,144,145,146,147,148,148,149,150,151,152,153,
+	153,154,155,156,157,158,158,159,160,161,162,162,163,164,165,166,166,167,168,169,169,170,171,172,172,173,174,175,
+	175,176,177,177,178,179, 180,180,181,182,182,183,184,185,185,186,187,187,188,189,189,190,191,191,192,193,193,194,
 };
 
 struct rgb { 
@@ -61,12 +47,12 @@ struct rgb {
 		return ch<59? ((ch+4) >> 3) : 7;
 	}
 	uint16_t encode() const {
-		return (round6to3(b) << 9) | (round6to3(g) << 5) | (round6to3(r) << 1);
+		return (b << 9) | (g << 5) | (b << 1);
 	}
 };
 
 class palette {
-	std::map<rgb,uint8_t> asMap;
+	std::set<rgb> asSet;
 	std::vector<rgb> asVector;
 	uint8_t nearestDist[8][8][8]; // fixed point distance to nearest palette. (max dist is 12.12 so this is a 4.4 fixed point)
 	uint8_t nearestIndex[8][8][8];
@@ -74,15 +60,26 @@ class palette {
 	static uint8_t round8to6(uint8_t c) {
 		return c>253? 63 : (c+2)>>2;
 	}
+	static uint8_t round8to3(uint8_t c) {
+		return c>239? 7 : (c+16)>>5;
+	}
 public:
+	palette() {
+		reset();
+	}
+	void reset() {
+		asSet.clear();
+		asVector.clear();
+		nextColor = 0;
+	}
 	rgb finalPalette[16];
-	uint8_t nextColor = 0;
+	uint8_t nextColor;
 
 	void tally(uint8_t r,uint8_t g,uint8_t b,uint8_t a) {
 		if (a > 127) {
 			// Knock off two bits to save processing time (final result is only 3 bits anyway)
 			rgb e(round8to6(r),round8to6(g),round8to6(b));
-			if (asMap.insert(std::pair<rgb,uint8_t>(e,255)).second)
+			if (asSet.insert(e).second)
 				asVector.push_back(e);
 		}
 	}
@@ -98,15 +95,15 @@ public:
 		// Make upper bound exclusive
 		maxi.r++; maxi.g++; maxi.b++;
 		if (debug) printf("starting median cut, %zu(%zu) colors, ranged %d,%d,%d - %d,%d,%d\n",
-			asMap.size(),asVector.size(),mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b);
+			asSet.size(),asVector.size(),mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b);
 		median_cut(mini,maxi,0,asVector.size(),maxColors);
 		compute_distance_field();
 	}
 	uint8_t remap(uint8_t r,uint8_t g,uint8_t b,uint8_t a) {
 		if (a < 128)
 			return 0;
-		rgb e(round8to6(r),round8to6(g),round8to6(b));
-		return asMap.find(e)->second;
+		else
+			return nearestIndex[round8to3(r)][round8to3(g)][round8to3(b)];
 	}
 	uint32_t computeDistanceTo(const palette &that) {
 		uint32_t t = 0;
@@ -152,7 +149,6 @@ private:
 			assert(end>start);
 			int rSum = 0, gSum = 0, bSum = 0, found = 0;
 			for (size_t i=start; i<end; i++) {
-				asMap[asVector[i]] = nextColor;
 				rSum += asVector[i].r;
 				gSum += asVector[i].g;
 				bSum += asVector[i].b;
@@ -193,11 +189,12 @@ private:
 };
 
 int main(int argc,char** argv) {
-	if (argc<2) {
-		fprintf(stderr,"args: manifest_name\n");
+	if (argc<4) {
+		fprintf(stderr,"args: manifest_name c_file palette_count\n");
 		return 1;
 	}
 	FILE *m = fopen(argv[1],"r");
+	int nPal = atoi(argv[3]);
 	if (!m) {
 		fprintf(stderr,"unable to open %s\n",argv[1]);
 		return 1;
@@ -208,6 +205,7 @@ int main(int argc,char** argv) {
 	struct tile;
 	struct sharedPalette: public palette {
 		std::vector<uint32_t> clients; // List of clients using this palette
+		uint8_t selfIndex;
 	};
 	std::vector<sharedPalette*> sharedPalettes;
 	struct tile {
@@ -232,8 +230,8 @@ int main(int argc,char** argv) {
 		workItem i;
 		char image_name[64];
 		puts(lineBuf);
-		if (sscanf(lineBuf,"%s %s %s %d %d %d %d %d %d",image_name,i.cfile_name,i.c_sym,
-			&i.tileWidth,&i.tileHeight,&i.firstCol,&i.firstRow,&i.numCols,&i.numRows) != 9) {
+		if (sscanf(lineBuf,"%s %s %d %d %d %d %d %d",image_name,i.c_sym,
+			&i.tileWidth,&i.tileHeight,&i.firstCol,&i.firstRow,&i.numCols,&i.numRows) != 8) {
 			fprintf(stderr,"bad data on line %d\n",lineNumber);
 			return 1;
 		}
@@ -305,6 +303,7 @@ int main(int argc,char** argv) {
 
 	printf("%zu non-empty tiles found across %zu files\n",tiles.size(),workItems.size());
 
+	// Initial pass to get our working set size down; look only for palettes that are subsets
 	for (size_t i=0; i<sharedPalettes.size(); i++) {
 		for (size_t j=0; j<sharedPalettes.size();) {
 			if (i!=j && sharedPalettes[j]->computeDistanceTo(*sharedPalettes[i]) == 0) {
@@ -312,7 +311,7 @@ int main(int argc,char** argv) {
 				while (sharedPalettes[j]->clients.size()) {
 					auto t = sharedPalettes[j]->clients.back();
 					sharedPalettes[i]->clients.push_back(t);
-					tiles[t].sp = sharedPalettes[j];
+					tiles[t].sp = sharedPalettes[i];
 					sharedPalettes[j]->clients.pop_back();
 				}
 				delete sharedPalettes[j];
@@ -325,73 +324,84 @@ int main(int argc,char** argv) {
 				++j;
 		}
 	}
-	printf("%zu palettes remain\n",sharedPalettes.size());
+	printf("%zu palettes remain after initial pass\n",sharedPalettes.size());
 
-#if 0
-	FILE *cfile = fopen(argv[2],"w");
-	if (!cfile)
-		return 1;
-	const char *c_sym = argv[3];
-
-	fprintf(cfile,"#include \"md_api.h\"\n");
-
-	// First pass over the data, assign each palette group to a different palette for now.
-	palette *palettes[4] = { new palette, new palette, new palette, new palette };
-	for (int row=0; row<cells_down; row+=palette_group_cell_height) {
-		for (int col=0; col<cells_across; col+=palette_group_cell_width) {
-			palette &p = *palettes[(row+col) & 3];
-			for (int y=0; y<cell_height * palette_group_cell_height; y++) {
-				uint32_t offs = (hdr.width * (row*cell_height + start_y+y) + (col*cell_width + start_x)) * 4;
-				for (int x=0; x<cell_width * palette_group_cell_width; x++, offs+=4) 
-					p.tally(pixel_data[offs+2],pixel_data[offs+1],pixel_data[offs+0],pixel_data[offs+3]);
+	// Now enter the general version of the algorithm
+	while (sharedPalettes.size() > nPal) {
+		size_t bestI = ~0U, bestJ = ~0U;
+		uint32_t bestDist = ~0U;
+		for (size_t i=0; bestDist && i<sharedPalettes.size(); i++) {
+			for (size_t j=0; bestDist && j<sharedPalettes.size(); j++) {
+				if (i!=j) {
+					uint32_t j2i = sharedPalettes[j]->computeDistanceTo(*sharedPalettes[i]);
+					if (j2i < bestDist)
+						bestI = i, bestJ = j, bestDist = j2i;
+				}
 			}
+		}
+		printf("merging palette %zu into palette %zu\n",bestJ,bestI);
+		// Transfer all clients from bestJ to bestI 
+		while (sharedPalettes[bestJ]->clients.size()) {
+			auto t = sharedPalettes[bestJ]->clients.back();
+			sharedPalettes[bestI]->clients.push_back(t);
+			assert(tiles[t].sp == sharedPalettes[bestJ]);
+			tiles[t].sp = sharedPalettes[bestI];
+			sharedPalettes[bestJ]->clients.pop_back();
+		}
+		
+		delete sharedPalettes[bestJ];
+		sharedPalettes.erase(sharedPalettes.begin() + bestJ);
+
+		// If it wasn't a proper subset, we need to (for best results!) regenerate the entire shared palette
+		if (bestDist) {
 		}
 	}
 
-	// Generate all the palettes based on the sampled data
-	for (int i=0; i<4; i++) {
-		palettes[i]->median_cut(15);
-		fprintf(cfile,"const uint16_t %s_palette_%u[16] = { ",c_sym,i);
+	FILE *cfile = fopen(argv[2],"w");
+	if (!cfile) {
+		fprintf(stderr,"cannot create output file %s\n",argv[2]);
+		return 1;
+	}
+
+	fprintf(cfile,"#include \"md_api.h\"\n");
+
+	for (int i=0; i<nPal; i++) {
+		sharedPalettes[i]->selfIndex = i;
+		fprintf(cfile,"const uint16_t palette_%u[16] = { ",i);
 		for (int j=0; j<16; j++)
-			fprintf(cfile,"0x%03x, ",palettes[i]->finalPalette[j].encode());
+			fprintf(cfile,"0x%03x,",sharedPalettes[i]->finalPalette[j].encode());
 		fprintf(cfile,"};\n");
 	}
 
 	std::string dirString;
-
-	// Next pass over the data is to generate the actual tiles by mapping them through the associated palette
-	// This loop is more intricate sprite tiles are 8x8 columns, then rows.
-	for (int row=0; row<cells_down; row+=palette_group_cell_height) {
-		for (int col=0; col<cells_across; col+=palette_group_cell_width) {
-			palette &p = *palettes[(row+col) & 3];
-			for (int pgRow=0; pgRow<palette_group_cell_height; pgRow++) {
-				for (int pgCol=0; pgCol<palette_group_cell_width; pgCol++) {
-					fprintf(cfile,"const uint32_t %s_%d_%d[] = {\n",c_sym,col+pgCol,row+pgRow);
-					dirString += std::string("{ ") + c_sym + "_" + std::to_string(col+pgCol) + "_" + std::to_string(row+pgRow) + ", " + c_sym + "_palette_" + std::to_string((row+col)&3) + " },\n";
-					for (int spCol=0; spCol<cell_width; spCol+=8) {
-						for (int spRow=0; spRow<cell_height; spRow+=8) {
-							fprintf(cfile,"\t");
-							for (int y=0; y<8; y++) {
-								uint32_t pix = 0;
-								uint32_t offs = (hdr.width * ((row+pgRow)*cell_height + start_y+spRow+y) + ((col+pgCol)*cell_width + start_x+spCol)) * 4;
-								for (int x=0; x<8; x++,offs+=4) {
-									pix <<= 4;
-									pix |= p.remap(pixel_data[offs+2],pixel_data[offs+1],pixel_data[offs+0],pixel_data[offs+3]);
-								}
-								fprintf(cfile,"0x%08x,",pix);
-							}
-							fprintf(cfile,"\n");
-						}
+	for (auto &t: tiles) {
+		palette &p = *t.sp;
+		workItem &w = workItems[t.workItem];
+		fprintf(cfile,"const uint32_t %s_%d_%d[] = {\n",w.c_sym,t.col,t.row);
+		dirString += std::string("{ ") + w.c_sym + "_" + std::to_string(t.col) + "_" + std::to_string(t.row) + 
+			", palette_" + std::to_string(t.sp->selfIndex) +  " },\n";
+		for (int c=0; c<w.tileWidth; c+=8) {
+			for (int r=0; r<w.tileHeight; r+=8) {
+				fprintf(cfile,"\t");
+				for (int y=0; y<8; y++) {
+					uint32_t pix = 0;
+					uint32_t o = t.offset + 4 * (w.imageWidth*(r+y) + c);
+					for (int x=0; x<8; x++,o+=4) {
+						pix <<= 4;
+						pix |= p.remap(w.pixelData[o+2],w.pixelData[o+1],w.pixelData[o+0],w.pixelData[o+3]);
 					}
-					fprintf(cfile,"};\n\n");
+					fprintf(cfile,"0x%08x,",pix);
 				}
+				fprintf(cfile,"\n");
 			}
 		}
+		fprintf(cfile,"};\n\n");
 	}
 
+	const char *c_sym = "master";
 	fprintf(cfile,"const struct { const uint32_t *tile; const uint16_t *palette; } %s_directory[] = {\n",c_sym);
 	fprintf(cfile,"%s",dirString.c_str());
 	fprintf(cfile,"};\n\nconst uint16_t %s_directory_count = sizeof(%s_directory) / sizeof(%s_directory[0]);\n",c_sym,c_sym,c_sym);
 	fclose(cfile);
-#endif
+	return 0;
 }
