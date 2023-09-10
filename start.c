@@ -92,11 +92,12 @@ void Main() {
 	video_set_vram_write_addr(0x4000);
 
 	uint8_t palettes[27];
-	const uint32_t *b = walls_0_0;
+	const uint32_t *b = tiles_directory + tiles_walls_2_0;
 	for (int i=0; i<27; i++) {
-		palettes[i] = *(uint8_t*)b >> 5;
-		video_upload_sprite(b+1,9);
-		b += 1+8*9;
+		palettes[i] = b[i] >> 29;
+		// 68000 has a 24 bit data bus, upper eight bits aren't used
+		// would ordinarity use lower bits but linker doesn't align to 32 bit boundaries
+		video_upload_sprite((uint32_t*)b[i],9);
 	}
 	
 	maze_init(512,palettes);
@@ -125,12 +126,13 @@ void Main() {
 		video_draw_string(video_plane_a_addr(10,14),text_attr,timer);
 
 		video_set_vram_write_addr(0xF000);
+		uint16_t ti = modulo(elapsed >> 12, tiles_chars_21_17-tiles_chars_0_0+1) + tiles_chars_0_0;
 		VDP_DATA_W = 128 + 50 + ((elapsed >> 13) & 127);
-		VDP_DATA_W = *(short*)chars_0_0;
-		VDP_DATA_W = *(short*)chars_0_0 & 0xF000 | 256;
+		VDP_DATA_W = 0x0A00;
+		VDP_DATA_W = ((tiles_directory[ti] >> 16) & 0x6000) | 256;
 		VDP_DATA_W = 128 + 20 + ((elapsed >> 12) & 255);
 		video_set_vram_write_addr(0x2000);
-		video_upload_sprite(chars_0_0+1,9);
+		video_upload_sprite((uint32_t*)tiles_directory[ti],9);
 
 		video_set_vram_write_addr(0xF802);
 		VDP_DATA_W = -off_x;

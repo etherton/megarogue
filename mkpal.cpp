@@ -229,8 +229,9 @@ int main(int argc,char** argv) {
 	struct tile {
 		sharedPalette *sp;
 		uint32_t offset;
-		uint32_t workItem;
-		uint16_t row, col;
+		uint8_t workItem;
+		uint8_t row, col;
+		char name[32-15];
 	};
 	struct workItem {
 		char cfile_name[64];
@@ -301,6 +302,7 @@ int main(int argc,char** argv) {
 					t.offset = base;
 					t.workItem = workItems.size();
 					t.row = r; t.col = c;
+					snprintf(t.name,sizeof(t.name),"%s_%d_%d",i.c_sym,r,c);
 					sharedPalettes.push_back(t.sp);
 					tiles.push_back(std::move(t));
 				}
@@ -447,16 +449,10 @@ int main(int argc,char** argv) {
 		fprintf(hfile,"extern const uint16_t %s_palette_%d[];\n",argv[2],i);
 	}
 
-	// this is fragile but the linker puts the symbols in the rom in reverse order so emit these in reverse too
-	while (tiles.size()) {
-		auto &t = tiles.back();
+	for (auto &t: tiles) {
 		auto &p = *t.sp;
 		workItem &w = workItems[t.workItem];
-		std::string thisOne = std::string(w.c_sym) + "_" + std::to_string(t.col) + "_" + std::to_string(t.row);
-		fprintf(cfile,"const uint32_t %s[] = { ",thisOne.c_str());
-		// emit a header word describing the palette and size; could eventually be extended for compression.
-		uint32_t h = (p.selfIndex << 13) | (((w.tileWidth>>3)-1) << 10) | (((w.tileHeight>>3)-1) << 8);
-		fprintf(cfile,"0x%08x, /* palette %u, %ux%u cells */\n",h<<16,p.selfIndex,w.tileWidth>>3,w.tileHeight>>3);
+		fprintf(cfile,"const uint32_t %s[] = {\n",t.name);
 		for (int c=0; c<w.tileWidth; c+=8) {
 			for (int r=0; r<w.tileHeight; r+=8) {
 				fprintf(cfile,"\t");
@@ -473,9 +469,21 @@ int main(int argc,char** argv) {
 			}
 		}
 		fprintf(cfile,"};\n\n");
-		fprintf(hfile,"extern const uint32_t %s[];\n",thisOne.c_str());
-		tiles.pop_back();
+		fprintf(hfile,"extern const uint32_t %s[];\n",t.name);
 	}
+
+	fprintf(hfile,"enum %s_enum {\n",argv[2]);
+	fprintf(cfile,"\nconst uint32_t %s_directory[] = {\n",argv[2]);
+	for (auto &t: tiles) {
+		fprintf(hfile,"\t%s_%s,\n",argv[2],t.name);
+		fprintf(cfile,"\t(uint32_t)%s + (%d<<29),\n",t.name,t.sp->selfIndex);
+	}
+	fprintf(cfile,"};\nconst uint16_t %s_directory_size = %zd;\n",argv[2],tiles.size());
+	fprintf(hfile,"};\n");
+
+	fprintf(hfile,"extern const uint32_t %s_directory[];\n",argv[2]);
+	fprintf(hfile,"extern const uint16_t %s_directory_size;\n",argv[2]);
+
 	fclose(cfile);
 	fclose(hfile);
 	return 0;

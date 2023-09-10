@@ -2,8 +2,8 @@
 # the files are not included because of license restrictions
 # obtain them from oryxdesignlab.com, and save the original _trans.png files out as
 # 32bpp targa files with a top-left origin (either no compression or simple RLE should work)
-oryx_16bit_fantasy_creatures_trans.tga chars 24 24 1 1 4 1
-oryx_16bit_fantasy_world_trans.tga walls 24 24 1 1 27 1
+oryx_16bit_fantasy_creatures_trans.tga chars 24 24 1 1 18 22
+oryx_16bit_fantasy_world_trans.tga walls 24 24 1 1 27 23
 # oryx_16bit_fantasy_world_trans.tga decor 24 24 29 1 14 10
 # oryx_16bit_fantasy_items_trans.tga items 16 16 1 1 22 14
 # oryx_16bit_fantasy_fx_trans.tga fx 24 24 1 1 10 20
