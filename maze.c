@@ -186,13 +186,17 @@ static inline _Bool test(int r,int c) {
 	return r>=0&r<MAZE_SIZE&&c>=0&&c<MAZE_SIZE?(maze[r][c>>3] & bit[c&7]) != 0 : 0;
 }
 
-int maze_get_tile(_Bool ab,int row,int col) {
+uint8_t maze_get_tile(_Bool ab,int row,int col) {
 	int bit_u = test(row-1,col)? OCC_U : 0;
 	int bit_d = test(row+1,col)? OCC_D : 0;
 	int bit_l = test(row,col-1)? OCC_L : 0;
 	int bit_r = test(row,col+1)? OCC_R : 0;
 	int bit_h = test(row,col)? OCC_H : 0;
-	return dirMap[ab][bit_u | bit_d | bit_l | bit_r | bit_h];
+	uint8_t r = dirMap[ab][bit_u | bit_d | bit_l | bit_r | bit_h];
+	// doors are only valid if the corners are empty
+	if (r == 27 && (test(row-1,col-1)||test(row-1,col+1)||test(row+1,col-1)||test(row+1,col+1)))
+		r = 28;
+	return r;
 }
 
 void maze_draw_plane(_Bool ab) {
