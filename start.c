@@ -28,8 +28,8 @@ void interrupt_v() {
 	// asm(".short 0x4E73"); // RTE - 0100 1110 0111 0011
 }
 
-static void draw_pad(const char *tag,uint8_t x,uint8_t y,uint16_t attr,uint16_t bits) {
-	video_draw_string(video_plane_w_addr(x,y),attr,tag);
+static void draw_pad(uint8_t x,uint8_t y,uint16_t attr,uint16_t bits) {
+	video_set_vram_write_addr(video_plane_w_addr(x,y));
 	VDP_DATA_W = attr | (bits & JOYPAD_UP? 'U' : ' ') - video_first_char;
 	VDP_DATA_W = attr | (bits & JOYPAD_DOWN? 'D' : ' ') - video_first_char;
 	VDP_DATA_W = attr | (bits & JOYPAD_LEFT? 'L' : ' ') - video_first_char;
@@ -66,24 +66,23 @@ void _start() {
 
 void Main() {
 	uint8_t flags = REG_VERSION_B;
-	video_init(PLANE_SIZE_64_32);
-	video_config_window(RIGHT_OF_X_SPLIT | 17,0);
+	video_init(PLANE_SIZE_32_32,0xC000);
+	video_config_window(RIGHT_OF_X_SPLIT | 15,BELOW_Y_SPLIT | 26);
 
 	// asm volatile("move #$2000,sr");
 
 	video_set_vram_write_addr(0);
-	video_upload_bitmap_font(&font8x8_basic[0][0],64,0x1,0x7,32);
+	video_upload_bitmap_font(&font8x8_basic[0][0],64,15,14,32);
 
-	const uint16_t text_attr = NT_PRIORITY | NT_PALETTE_0;
 	// video_draw_string(video_plane_a_addr(10,10),text_attr,flags & REG_VERSION_PAL?"PAL ":"NTSC");
 	// video_draw_string(video_plane_a_addr(10,12),text_attr,flags & REG_VERSION_OVERSEAS?"OVERSEAS":"DOMESTIC");
 
-	video_draw_string(video_plane_w_addr(34,0),0,"STR:18");
-	video_draw_string(video_plane_w_addr(34,1),0,"DEX:11");
-	video_draw_string(video_plane_w_addr(34,2),0,"CON:12");
-	video_draw_string(video_plane_w_addr(34,3),0,"WIS:08");
-	video_draw_string(video_plane_w_addr(34,4),0,"INT:09");
-	video_draw_string(video_plane_w_addr(34,6),0,"HP:010");
+	video_draw_string(video_plane_w_addr(32,0),video_window_attr,"STR:18");
+	video_draw_string(video_plane_w_addr(32,1),video_window_attr,"DEX:11");
+	video_draw_string(video_plane_w_addr(32,2),video_window_attr,"CON:12");
+	video_draw_string(video_plane_w_addr(32,3),video_window_attr,"WIS:08");
+	video_draw_string(video_plane_w_addr(32,4),video_window_attr,"INT:09");
+	video_draw_string(video_plane_w_addr(32,5),video_window_attr,"HP:010");
 
 	video_upload_palette(0,tiles_palette_0);
 	video_upload_palette(1,tiles_palette_1);
@@ -126,14 +125,14 @@ void Main() {
 
 		while (!vbi);
 		vbi = 0;
-		video_draw_string(video_plane_w_addr(10,14),text_attr,timer);
+		video_draw_string(video_plane_w_addr(32,10),video_window_attr,timer);
 
 		video_set_vram_write_addr(0xF000);
 		uint16_t ti = modulo(elapsed >> 12, tiles_chars_21_17-tiles_chars_0_0+1) + tiles_chars_0_0;
-		VDP_DATA_W = 128 + 50 + ((elapsed >> 13) & 127);
+		VDP_DATA_W = 128 + 50 + ((elapsed >> 13) & 127); // y
 		VDP_DATA_W = 0x0A00;
-		VDP_DATA_W = ((tiles_directory[ti] >> 16) & 0x6000) | 1024;
-		VDP_DATA_W = 128 + 20 + ((elapsed >> 12) & 255);
+		VDP_DATA_W = ((tiles_directory[ti] >> 16) & 0x6000) | 1024; // Sprite loaded at 0x8000
+		VDP_DATA_W = 128 + 20 + ((elapsed >> 12) & 255); // x
 		video_set_vram_write_addr(0x8000);
 		video_upload_sprite((uint32_t*)tiles_directory[ti],9);
 
@@ -162,10 +161,9 @@ void Main() {
 		off_y = new_off_y;
 		off_x = new_off_x;
 			
-		draw_pad("ONE ", 4,16,text_attr, pad0);
-		draw_pad("TWO ", 4,18,text_attr, pad1);
+		draw_pad(0,26,video_window_attr,pad0);
+		draw_pad(0,27,video_window_attr,pad1);
 		// video_set_palette_entry(1, n & 0xEEE);
 		// n += 0x010101;
 	}
 }
-	

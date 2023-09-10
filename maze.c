@@ -197,27 +197,27 @@ int maze_get_tile(_Bool ab,int row,int col) {
 
 void maze_draw_plane(_Bool ab) {
 	for (int row=0; row<11; row++) {
-		for (int col=0; col<22; col++) {
+		for (int col=0; col<11; col++) {
 			int tile = maze_get_tile(ab,row,col);
 			uint16_t attr = maze_palettes[tile] << 13;
 			tile = maze_base_tile + tile * 9;
 			video_set_vram_write_addr(video_plane_ab_addr(ab,col*3,row*3));
 			VDP_DATA_W=(tile+0) | attr;
-			if (col != 21) {
-				VDP_DATA_W=(tile+3) | attr;
+			VDP_DATA_W=(tile+3) | attr;
+			if (col != 10) {
 				VDP_DATA_W=(tile+6) | attr;
 			}
 			video_set_vram_write_addr(video_plane_ab_addr(ab,col*3,row*3+1));
 			VDP_DATA_W=(tile+1) | attr;
-			if (col != 21) {
-				VDP_DATA_W=(tile+4) | attr;
+			VDP_DATA_W=(tile+4) | attr;
+			if (col != 10) {
 				VDP_DATA_W=(tile+7) | attr;
 			}
 			if (row!=10) {
 				video_set_vram_write_addr(video_plane_ab_addr(ab,col*3,row*3+2));
 				VDP_DATA_W=(tile+2) | attr;
-				if (col != 21) {
-					VDP_DATA_W=(tile+5) | attr;
+				VDP_DATA_W=(tile+5) | attr;
+				if (col != 10) {
 					VDP_DATA_W=(tile+8) | attr;
 				}
 			}

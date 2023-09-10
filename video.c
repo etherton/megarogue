@@ -8,7 +8,9 @@ uint8_t video_plane_height, video_plane_height_mask;
 
 const uint8_t plane_shifts[] = { 5, 6, 0, 7 }; // 32,64,128
 
-void video_init(uint8_t plane_size) {
+uint16_t video_window_attr;
+
+void video_init(uint8_t plane_size,uint16_t attr) {
 	VDP_CTRL_W = 0x8004; // No HBI, no HV latch
 	VDP_CTRL_W = 0x8134; // No display, VBI, DMA OK, V28
 	VDP_CTRL_W = 0x8200 | (0xC000 >> 10); // Plane A: $C000
@@ -30,15 +32,23 @@ void video_init(uint8_t plane_size) {
 	video_plane_width_mask = video_plane_width-1;
 	video_plane_height = 1 << plane_shifts[plane_size >> 4];
 	video_plane_height_mask = video_plane_height-1;
+	video_window_attr = attr;
 
 	// Clear first long of VSRAM
 	VDP_CTRL_L = 0x40000010;
 	VDP_DATA_L = 0;
-	// Clear all of VRAM
+	// Clear all of VRAM (except window to priority)
 	video_set_vram_write_addr(0);
-	int c = 16384;
+	int c = 0xD000 >> 2;
 	while (c--)
 		VDP_DATA_L = 0;
+	c = 0x1000 >> 2;
+	while (c--)
+		VDP_DATA_L = attr | (attr << 16);
+	c = 0x2000 >> 2;
+	while (c--)
+		VDP_DATA_L = 0;
+	c = 0x2000 >> 2;
 }
 
 void video_config_window(uint8_t h,uint8_t v) {

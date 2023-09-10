@@ -60,7 +60,8 @@ extern uint16_t joypad_read(int which);
 
 extern uint8_t video_plane_shift, video_plane_width, video_plane_width_mask,
 	video_plane_height, video_plane_height_mask;
-extern void video_init(uint8_t plane_size /*PLANE_SIZE_...*/);
+extern void video_init(uint8_t plane_size /*PLANE_SIZE_...*/,uint16_t w_attr);
+extern uint16_t video_window_attr;
 #define LEFT_OF_X_SPLIT 0x00
 #define RIGHT_OF_X_SPLIT 0x80
 #define ABOVE_Y_SPLIT	0x00
@@ -80,8 +81,9 @@ extern void video_draw_string(uint16_t addr,uint16_t attributes,const char *s);
 inline uint16_t video_plane_a_addr(uint8_t x,uint8_t y) {
 	return (y << video_plane_shift) + x + x + 0xC000;
 }
+// window always seems to be treated as 64x32
 inline uint16_t video_plane_w_addr(uint8_t x,uint8_t y) {
-	return (y << video_plane_shift) + x + x + 0xD000;
+	return (y << 7) + x + x + 0xD000;
 }
 inline uint16_t video_plane_b_addr(uint8_t x,uint8_t y) {
 	return (y << video_plane_shift) + x + x + 0xE000;
