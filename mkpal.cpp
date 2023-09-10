@@ -43,7 +43,7 @@ struct rgb {
 	}
 	uint16_t encode() const {
 		assert(r<8&&g<8&&b<8);
-		return ((uint16_t)b << 9) | ((uint16_t)g << 5) | ((uint16_t)b << 1);
+		return ((uint16_t)b << 9) | ((uint16_t)g << 5) | ((uint16_t)r << 1);
 	}
 };
 
@@ -445,30 +445,36 @@ int main(int argc,char** argv) {
 			fprintf(cfile,"0x%03x,",p.finalPalette[j].encode());
 		fprintf(cfile,"};\n");
 		fprintf(hfile,"extern const uint16_t %s_palette_%d[];\n",argv[2],i);
+	}
 
-		for (auto ti: p.clients) {
-			auto &t = tiles[ti];
-			workItem &w = workItems[t.workItem];
-			std::string thisOne = std::string(w.c_sym) + "_" + std::to_string(t.col) + "_" + std::to_string(t.row);
-			fprintf(cfile,"const uint32_t %s[] = {\n",thisOne.c_str());
-			for (int c=0; c<w.tileWidth; c+=8) {
-				for (int r=0; r<w.tileHeight; r+=8) {
-					fprintf(cfile,"\t");
-					for (int y=0; y<8; y++) {
-						uint32_t pix = 0;
-						uint32_t o = t.offset + 4 * (w.imageWidth*(r+y) + c);
-						for (int x=0; x<8; x++,o+=4) {
-							pix <<= 4;
-							pix |= p.remap(w.pixelData[o+2],w.pixelData[o+1],w.pixelData[o+0],w.pixelData[o+3]);
-						}
-						fprintf(cfile,"0x%08x,",pix);
+	// this is fragile but the linker puts the symbols in the rom in reverse order so emit these in reverse too
+	while (tiles.size()) {
+		auto &t = tiles.back();
+		auto &p = *t.sp;
+		workItem &w = workItems[t.workItem];
+		std::string thisOne = std::string(w.c_sym) + "_" + std::to_string(t.col) + "_" + std::to_string(t.row);
+		fprintf(cfile,"const uint32_t %s[] = { ",thisOne.c_str());
+		// emit a header word describing the palette and size; could eventually be extended for compression.
+		uint32_t h = (p.selfIndex << 13) | (((w.tileWidth>>3)-1) << 10) | (((w.tileHeight>>3)-1) << 8);
+		fprintf(cfile,"0x%08x, /* palette %u, %ux%u cells */\n",h<<16,p.selfIndex,w.tileWidth>>3,w.tileHeight>>3);
+		for (int c=0; c<w.tileWidth; c+=8) {
+			for (int r=0; r<w.tileHeight; r+=8) {
+				fprintf(cfile,"\t");
+				for (int y=0; y<8; y++) {
+					uint32_t pix = 0;
+					uint32_t o = t.offset + 4 * (w.imageWidth*(r+y) + c);
+					for (int x=0; x<8; x++,o+=4) {
+						pix <<= 4;
+						pix |= p.remap(w.pixelData[o+2],w.pixelData[o+1],w.pixelData[o+0],w.pixelData[o+3]);
 					}
-					fprintf(cfile,"\n");
+					fprintf(cfile,"0x%08x,",pix);
 				}
+				fprintf(cfile,"\n");
 			}
-			fprintf(cfile,"};\n\n");
-			fprintf(hfile,"extern const uint32_t %s[];\n",thisOne.c_str());
 		}
+		fprintf(cfile,"};\n\n");
+		fprintf(hfile,"extern const uint32_t %s[];\n",thisOne.c_str());
+		tiles.pop_back();
 	}
 	fclose(cfile);
 	fclose(hfile);

@@ -161,7 +161,13 @@ static void make_maze(int axis,int start,int stop,int otherStart,int otherStop) 
 		make_maze(axis ^ 1,otherStart,otherStop,split,stop);
 }
 
-void maze_init() {
+static uint16_t maze_base_tile;
+static const uint8_t *maze_palettes;
+
+void maze_init(int base_tile,const uint8_t *palettes) {
+	maze_base_tile = base_tile;
+	maze_palettes = palettes;
+
 	draw_row(0,0,MAZE_SIZE-1);
 	draw_row(MAZE_SIZE-1,0,MAZE_SIZE-1);
 	draw_col(0,0,MAZE_SIZE-1);
@@ -175,12 +181,12 @@ static inline _Bool test(int r,int c) {
 
 int maze_get_tile(int row,int col) {
 	if (!test(row,col))
-		return 4 * 9 + 512;
+		return 4;
 	int bit_u = test(row-1,col)? OCC_U : 0;
 	int bit_d = test(row+1,col)? OCC_D : 0;
 	int bit_l = test(row,col-1)? OCC_L : 0;
 	int bit_r = test(row,col+1)? OCC_R : 0;
-	uint16_t tile = dirMap[bit_u | bit_d | bit_l | bit_r] * 9 + 512;
+	uint16_t tile = dirMap[bit_u | bit_d | bit_l | bit_r];
 	return tile;
 }
 
@@ -188,24 +194,26 @@ void maze_draw(int off_x,int off_y) {
 	for (int row=0; row<11; row++) {
 		for (int col=0; col<22; col++) {
 			int tile = maze_get_tile(row,col);
+			uint16_t attr = maze_palettes[tile] << 13;
+			tile = maze_base_tile + tile * 9;
 			video_set_vram_write_addr(video_plane_b_addr(col*3,row*3));
-			VDP_DATA_W=(tile+0) | NT_PALETTE_3;
+			VDP_DATA_W=(tile+0) | attr;
 			if (col != 21) {
-				VDP_DATA_W=(tile+3) | NT_PALETTE_3;
-				VDP_DATA_W=(tile+6) | NT_PALETTE_3;
+				VDP_DATA_W=(tile+3) | attr;
+				VDP_DATA_W=(tile+6) | attr;
 			}
 			video_set_vram_write_addr(video_plane_b_addr(col*3,row*3+1));
-			VDP_DATA_W=(tile+1) | NT_PALETTE_3;
+			VDP_DATA_W=(tile+1) | attr;
 			if (col != 21) {
-				VDP_DATA_W=(tile+4) | NT_PALETTE_3;
-				VDP_DATA_W=(tile+7) | NT_PALETTE_3;
+				VDP_DATA_W=(tile+4) | attr;
+				VDP_DATA_W=(tile+7) | attr;
 			}
 			if (row!=10) {
 				video_set_vram_write_addr(video_plane_b_addr(col*3,row*3+2));
-				VDP_DATA_W=(tile+2) | NT_PALETTE_3;
+				VDP_DATA_W=(tile+2) | attr;
 				if (col != 21) {
-					VDP_DATA_W=(tile+5) | NT_PALETTE_3;
-					VDP_DATA_W=(tile+8) | NT_PALETTE_3;
+					VDP_DATA_W=(tile+5) | attr;
+					VDP_DATA_W=(tile+8) | attr;
 				}
 			}
 		}
@@ -219,14 +227,18 @@ void maze_new_column(uint32_t off_x,uint32_t off_y,uint32_t vid_col) {
 	uint16_t tile_x = (uint16_t)temp_x, subtile_x = (uint16_t)(temp_x>>16) * 3;
 	uint16_t tile_y = (uint16_t)temp_y, subtile_y = (uint16_t)(temp_y>>16);
 	video_set_vram_write_addr(video_plane_b_addr(vid_col,off_y & video_plane_height_mask));
-	uint16_t tile = maze_get_tile(tile_y,tile_x) + subtile_y + subtile_x;
+	uint16_t tile = maze_get_tile(tile_y,tile_x);
+	uint16_t attr = maze_palettes[tile] << 13;
+	tile = maze_base_tile + tile*9 + subtile_y + subtile_x;
 	uint16_t r=video_plane_height; 
 	do {
-		VDP_DATA_W = NT_PALETTE_3 | tile;
+		VDP_DATA_W = tile | attr;
 		if (++subtile_y==3) {
 			++tile_y;
 			subtile_y=0;
-			tile = maze_get_tile(tile_y,tile_x) + subtile_x;
+			tile = maze_get_tile(tile_y,tile_x);
+			attr = maze_palettes[tile] << 13;
+			tile = maze_base_tile + tile*9 + subtile_x;
 		}
 		else
 			++tile;
@@ -250,14 +262,18 @@ void maze_new_row(uint32_t off_x,uint32_t off_y,uint32_t vid_row) {
 	uint16_t tile_x = (uint16_t)temp_x, subtile_x = (uint16_t)(temp_x>>16) * 3;
 	uint16_t tile_y = (uint16_t)temp_y, subtile_y = (uint16_t)(temp_y>>16);
 	video_set_vram_write_addr(video_plane_b_addr(off_x & video_plane_width_mask,vid_row));
-	uint16_t tile = maze_get_tile(tile_y,tile_x) + subtile_y + subtile_x;
+	uint16_t tile = maze_get_tile(tile_y,tile_x);
+	uint16_t attr = maze_palettes[tile] << 13;
+	tile = maze_base_tile + tile*9 + subtile_y + subtile_x;
 	uint16_t c=video_plane_width;
 	do {
-		VDP_DATA_W = NT_PALETTE_3 | tile;
+		VDP_DATA_W = tile | attr;
 		if ((subtile_x+=3)==9) {
 			++tile_x;
 			subtile_x=0;
-			tile = maze_get_tile(tile_y,tile_x) + subtile_y;
+			tile = maze_get_tile(tile_y,tile_x);
+			attr = maze_palettes[tile] << 13;
+			tile = maze_base_tile + tile*9 + subtile_y;
 		}
 		else
 			tile+=3;

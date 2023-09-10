@@ -64,13 +64,6 @@ void _start() {
 	Main();
 }
 
-uint16_t get_palette(const uint32_t *t) {
-	if ((size_t)t > (size_t)tiles_palette_2)
-		return (size_t)t > (size_t)tiles_palette_3? NT_PALETTE_3 : NT_PALETTE_2;
-	else
-		return (size_t)t > (size_t)tiles_palette_1? NT_PALETTE_1 : NT_PALETTE_0;
-}
-
 void Main() {
 	uint8_t flags = REG_VERSION_B;
 	video_init(PLANE_SIZE_64_32);
@@ -97,18 +90,16 @@ void Main() {
 	video_upload_palette(2,tiles_palette_2);
 	video_upload_palette(3,tiles_palette_3);
 	video_set_vram_write_addr(0x4000);
-	video_upload_sprite(walls_0_0,9);
-	video_upload_sprite(walls_1_0,9);
-	video_upload_sprite(walls_2_0,9);
-	video_upload_sprite(walls_3_0,9);
-	video_upload_sprite(walls_4_0,9);
-	video_upload_sprite(walls_5_0,9);
-	video_upload_sprite(walls_6_0,9);
-	video_upload_sprite(walls_7_0,9);
-	video_upload_sprite(walls_8_0,9);
-	video_upload_sprite(walls_9_0,9);
+
+	uint8_t palettes[27];
+	const uint32_t *b = walls_0_0;
+	for (int i=0; i<27; i++) {
+		palettes[i] = *(uint8_t*)b >> 5;
+		video_upload_sprite(b+1,9);
+		b += 1+8*9;
+	}
 	
-	maze_init();
+	maze_init(512,palettes);
 	maze_draw(0,0);
 
 	video_enable();
@@ -135,11 +126,11 @@ void Main() {
 
 		video_set_vram_write_addr(0xF000);
 		VDP_DATA_W = 128 + 50 + ((elapsed >> 13) & 127);
-		VDP_DATA_W = 0x0A00;
-		VDP_DATA_W = get_palette(chars_0_0) | 256;
+		VDP_DATA_W = *(short*)chars_0_0;
+		VDP_DATA_W = *(short*)chars_0_0 & 0xF000 | 256;
 		VDP_DATA_W = 128 + 20 + ((elapsed >> 12) & 255);
 		video_set_vram_write_addr(0x2000);
-		video_upload_sprite(chars_0_0,9);
+		video_upload_sprite(chars_0_0+1,9);
 
 		video_set_vram_write_addr(0xF802);
 		VDP_DATA_W = -off_x;
