@@ -86,6 +86,9 @@ inline uint16_t video_plane_w_addr(uint8_t x,uint8_t y) {
 inline uint16_t video_plane_b_addr(uint8_t x,uint8_t y) {
 	return (y << video_plane_shift) + x + x + 0xE000;
 }
+inline uint16_t video_plane_ab_addr(_Bool ab,uint8_t x,uint8_t y) {
+	return (y << video_plane_shift) + x + x + (ab? 0xE000 : 0xC000);
+}
 
 struct nametable_t {
 	uint16_t priority:1, palette:2, vFlip:1, hFlip:1, tileIndex:11;

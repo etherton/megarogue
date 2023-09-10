@@ -1,5 +1,5 @@
 extern void maze_init(int base_tile,const uint8_t *palettes);
-extern void maze_draw(int,int);
+extern void maze_draw();
 
 extern void maze_new_right_column(uint32_t off_x,uint32_t off_y);
 extern void maze_new_left_column(uint32_t off_x,uint32_t off_y);

@@ -2,6 +2,8 @@
 #include "md_math.h"
 #include "maze.h"
 
+#include <stdbool.h>
+
 #define assert md_assert
 
 /*
@@ -40,12 +42,17 @@
 
 */
 
+#define OCC_H 16
 #define OCC_U 8
 #define OCC_D 4
 #define OCC_L 2
 #define OCC_R 1
+
 // Given occupancy bit mask as above (relative to current wall), return appropriate tile
-const uint8_t dirMap[16] = { 9, 10, 12, 11, 13, 16, 17, 21, 15, 18, 19, 24, 14, 23, 22, 20 };
+const uint8_t dirMap[2][32] = {
+	{ 28, 28, 28, 27, 28, 28, 28, 28, 28, 28, 28, 28, 27, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28 }, // plane a
+	{ 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 9, 10, 12, 11, 13, 16, 17, 21, 15, 18, 19, 24, 14, 23, 22, 20 }, // plane b
+};
 
 /*
 type[0b0000] = 9; // 1x1 wall
@@ -179,37 +186,35 @@ static inline _Bool test(int r,int c) {
 	return r>=0&r<MAZE_SIZE&&c>=0&&c<MAZE_SIZE?(maze[r][c>>3] & bit[c&7]) != 0 : 0;
 }
 
-int maze_get_tile(int row,int col) {
-	if (!test(row,col))
-		return 4;
+int maze_get_tile(_Bool ab,int row,int col) {
 	int bit_u = test(row-1,col)? OCC_U : 0;
 	int bit_d = test(row+1,col)? OCC_D : 0;
 	int bit_l = test(row,col-1)? OCC_L : 0;
 	int bit_r = test(row,col+1)? OCC_R : 0;
-	uint16_t tile = dirMap[bit_u | bit_d | bit_l | bit_r];
-	return tile;
+	int bit_h = test(row,col)? OCC_H : 0;
+	return dirMap[ab][bit_u | bit_d | bit_l | bit_r | bit_h];
 }
 
-void maze_draw(int off_x,int off_y) {
+void maze_draw_plane(_Bool ab) {
 	for (int row=0; row<11; row++) {
 		for (int col=0; col<22; col++) {
-			int tile = maze_get_tile(row,col);
+			int tile = maze_get_tile(ab,row,col);
 			uint16_t attr = maze_palettes[tile] << 13;
 			tile = maze_base_tile + tile * 9;
-			video_set_vram_write_addr(video_plane_b_addr(col*3,row*3));
+			video_set_vram_write_addr(video_plane_ab_addr(ab,col*3,row*3));
 			VDP_DATA_W=(tile+0) | attr;
 			if (col != 21) {
 				VDP_DATA_W=(tile+3) | attr;
 				VDP_DATA_W=(tile+6) | attr;
 			}
-			video_set_vram_write_addr(video_plane_b_addr(col*3,row*3+1));
+			video_set_vram_write_addr(video_plane_ab_addr(ab,col*3,row*3+1));
 			VDP_DATA_W=(tile+1) | attr;
 			if (col != 21) {
 				VDP_DATA_W=(tile+4) | attr;
 				VDP_DATA_W=(tile+7) | attr;
 			}
 			if (row!=10) {
-				video_set_vram_write_addr(video_plane_b_addr(col*3,row*3+2));
+				video_set_vram_write_addr(video_plane_ab_addr(ab,col*3,row*3+2));
 				VDP_DATA_W=(tile+2) | attr;
 				if (col != 21) {
 					VDP_DATA_W=(tile+5) | attr;
@@ -220,14 +225,19 @@ void maze_draw(int off_x,int off_y) {
 	}
 }
 
-void maze_new_column(uint32_t off_x,uint32_t off_y,uint32_t vid_col) {
+void maze_draw() {
+	maze_draw_plane(false);
+	maze_draw_plane(true);
+}
+
+void maze_new_column(_Bool ab,uint32_t off_x,uint32_t off_y,uint32_t vid_col) {
 	VDP_CTRL_W = 0x8F00 | (video_plane_width<<1);	// Autoincrement = one canvas line
 	uint32_t temp_x = div_mod(off_x,3);
 	uint32_t temp_y = div_mod(off_y,3);
 	uint16_t tile_x = (uint16_t)temp_x, subtile_x = (uint16_t)(temp_x>>16) * 3;
 	uint16_t tile_y = (uint16_t)temp_y, subtile_y = (uint16_t)(temp_y>>16);
-	video_set_vram_write_addr(video_plane_b_addr(vid_col,off_y & video_plane_height_mask));
-	uint16_t tile = maze_get_tile(tile_y,tile_x);
+	video_set_vram_write_addr(video_plane_ab_addr(ab,vid_col,off_y & video_plane_height_mask));
+	uint16_t tile = maze_get_tile(ab,tile_y,tile_x);
 	uint16_t attr = maze_palettes[tile] << 13;
 	tile = maze_base_tile + tile*9 + subtile_y + subtile_x;
 	uint16_t r=video_plane_height; 
@@ -236,33 +246,35 @@ void maze_new_column(uint32_t off_x,uint32_t off_y,uint32_t vid_col) {
 		if (++subtile_y==3) {
 			++tile_y;
 			subtile_y=0;
-			tile = maze_get_tile(tile_y,tile_x);
+			tile = maze_get_tile(ab,tile_y,tile_x);
 			attr = maze_palettes[tile] << 13;
 			tile = maze_base_tile + tile*9 + subtile_x;
 		}
 		else
 			++tile;
 		if ((++off_y & video_plane_height_mask) == 0)
-			video_set_vram_write_addr(video_plane_b_addr(vid_col,0));
+			video_set_vram_write_addr(video_plane_ab_addr(ab,vid_col,0));
 	} while (--r);
 	VDP_CTRL_W = 0x8F02;	// Autoincrement = 2;
 }
 
 void maze_new_right_column(uint32_t off_x,uint32_t off_y) {
-	maze_new_column(off_x+video_plane_width_mask,off_y,(off_x+video_plane_width_mask)&video_plane_width_mask);
+	maze_new_column(false,off_x+video_plane_width_mask,off_y,(off_x+video_plane_width_mask)&video_plane_width_mask);
+	maze_new_column(true,off_x+video_plane_width_mask,off_y,(off_x+video_plane_width_mask)&video_plane_width_mask);
 }
 
 void maze_new_left_column(uint32_t off_x,uint32_t off_y) {
-	maze_new_column(off_x,off_y,off_x&video_plane_width_mask);
+	maze_new_column(false,off_x,off_y,off_x&video_plane_width_mask);
+	maze_new_column(true,off_x,off_y,off_x&video_plane_width_mask);
 }
 
-void maze_new_row(uint32_t off_x,uint32_t off_y,uint32_t vid_row) {
+void maze_new_row(_Bool ab,uint32_t off_x,uint32_t off_y,uint32_t vid_row) {
 	uint32_t temp_x = div_mod(off_x,3);
 	uint32_t temp_y = div_mod(off_y,3);
 	uint16_t tile_x = (uint16_t)temp_x, subtile_x = (uint16_t)(temp_x>>16) * 3;
 	uint16_t tile_y = (uint16_t)temp_y, subtile_y = (uint16_t)(temp_y>>16);
-	video_set_vram_write_addr(video_plane_b_addr(off_x & video_plane_width_mask,vid_row));
-	uint16_t tile = maze_get_tile(tile_y,tile_x);
+	video_set_vram_write_addr(video_plane_ab_addr(ab,off_x & video_plane_width_mask,vid_row));
+	uint16_t tile = maze_get_tile(ab,tile_y,tile_x);
 	uint16_t attr = maze_palettes[tile] << 13;
 	tile = maze_base_tile + tile*9 + subtile_y + subtile_x;
 	uint16_t c=video_plane_width;
@@ -271,23 +283,25 @@ void maze_new_row(uint32_t off_x,uint32_t off_y,uint32_t vid_row) {
 		if ((subtile_x+=3)==9) {
 			++tile_x;
 			subtile_x=0;
-			tile = maze_get_tile(tile_y,tile_x);
+			tile = maze_get_tile(ab,tile_y,tile_x);
 			attr = maze_palettes[tile] << 13;
 			tile = maze_base_tile + tile*9 + subtile_y;
 		}
 		else
 			tile+=3;
 		if ((++off_x & video_plane_width_mask) == 0)
-			video_set_vram_write_addr(video_plane_b_addr(0,vid_row));
+			video_set_vram_write_addr(video_plane_ab_addr(ab,0,vid_row));
 	} while (--c);
 }
 
 void maze_new_bottom_row(uint32_t off_x,uint32_t off_y) {
-	maze_new_row(off_x,off_y+video_plane_height_mask,(off_y+video_plane_height_mask)&video_plane_height_mask);
+	maze_new_row(false,off_x,off_y+video_plane_height_mask,(off_y+video_plane_height_mask)&video_plane_height_mask);
+	maze_new_row(true,off_x,off_y+video_plane_height_mask,(off_y+video_plane_height_mask)&video_plane_height_mask);
 }
 
 void maze_new_top_row(uint32_t off_x,uint32_t off_y) {
-	maze_new_row(off_x,off_y,off_y&video_plane_height_mask);
+	maze_new_row(false,off_x,off_y,off_y&video_plane_height_mask);
+	maze_new_row(true,off_x,off_y,off_y&video_plane_height_mask);
 }
 
 /*

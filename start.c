@@ -29,7 +29,7 @@ void interrupt_v() {
 }
 
 static void draw_pad(const char *tag,uint8_t x,uint8_t y,uint16_t attr,uint16_t bits) {
-	video_draw_string(video_plane_a_addr(x,y),attr,tag);
+	video_draw_string(video_plane_w_addr(x,y),attr,tag);
 	VDP_DATA_W = attr | (bits & JOYPAD_UP? 'U' : ' ') - video_first_char;
 	VDP_DATA_W = attr | (bits & JOYPAD_DOWN? 'D' : ' ') - video_first_char;
 	VDP_DATA_W = attr | (bits & JOYPAD_LEFT? 'L' : ' ') - video_first_char;
@@ -72,7 +72,7 @@ void Main() {
 	// asm volatile("move #$2000,sr");
 
 	video_set_vram_write_addr(0);
-	video_upload_bitmap_font(&font8x8_basic[0][0],64,0x0,0x7,32);
+	video_upload_bitmap_font(&font8x8_basic[0][0],64,0x1,0x7,32);
 
 	const uint16_t text_attr = NT_PRIORITY | NT_PALETTE_0;
 	// video_draw_string(video_plane_a_addr(10,10),text_attr,flags & REG_VERSION_PAL?"PAL ":"NTSC");
@@ -89,9 +89,9 @@ void Main() {
 	video_upload_palette(1,tiles_palette_1);
 	video_upload_palette(2,tiles_palette_2);
 	video_upload_palette(3,tiles_palette_3);
-	video_set_vram_write_addr(0x4000);
 
-	uint8_t palettes[27];
+	video_set_vram_write_addr(0x0800);
+	uint8_t palettes[28];
 	const uint32_t *b = tiles_directory + tiles_walls_2_0;
 	for (int i=0; i<27; i++) {
 		palettes[i] = b[i] >> 29;
@@ -99,8 +99,11 @@ void Main() {
 		// would ordinarity use lower bits but linker doesn't align to 32 bit boundaries
 		video_upload_sprite((uint32_t*)b[i],9);
 	}
+	uint32_t d = tiles_directory[tiles_decor_2_0];
+	palettes[27] = d >> 29;
+	video_upload_sprite((uint32_t*)d,9);
 	
-	maze_init(512,palettes);
+	maze_init(64,palettes);
 	maze_draw(0,0);
 
 	video_enable();
@@ -123,22 +126,22 @@ void Main() {
 
 		while (!vbi);
 		vbi = 0;
-		video_draw_string(video_plane_a_addr(10,14),text_attr,timer);
+		video_draw_string(video_plane_w_addr(10,14),text_attr,timer);
 
 		video_set_vram_write_addr(0xF000);
 		uint16_t ti = modulo(elapsed >> 12, tiles_chars_21_17-tiles_chars_0_0+1) + tiles_chars_0_0;
 		VDP_DATA_W = 128 + 50 + ((elapsed >> 13) & 127);
 		VDP_DATA_W = 0x0A00;
-		VDP_DATA_W = ((tiles_directory[ti] >> 16) & 0x6000) | 256;
+		VDP_DATA_W = ((tiles_directory[ti] >> 16) & 0x6000) | 1024;
 		VDP_DATA_W = 128 + 20 + ((elapsed >> 12) & 255);
-		video_set_vram_write_addr(0x2000);
+		video_set_vram_write_addr(0x8000);
 		video_upload_sprite((uint32_t*)tiles_directory[ti],9);
 
-		video_set_vram_write_addr(0xF802);
-		VDP_DATA_W = -off_x;
+		video_set_vram_write_addr(0xF800);
+		VDP_DATA_L = (uint16_t)(-off_x) | (-off_x << 16);
 		
-		VDP_CTRL_L = 0x40020010;
-		VDP_DATA_W = off_y;
+		VDP_CTRL_L = 0x40000010;
+		VDP_DATA_L = off_y | (off_y << 16);
 
 		uint16_t pad0 = joypad_read(0), pad1 = joypad_read(1);
 		if (pad0 & JOYPAD_START)
