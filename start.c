@@ -105,7 +105,7 @@ void Main() {
 		VDP_DATA_L = 0;
 	b = tiles_directory + tiles_decor_1_0;
 	for (int i=0; i<4; i++) {
-		palettes[28+i] = b[i] >> 29;
+		palettes[28+i] = (b[i] >> 29) | 4; // spider webs have priority
 		video_upload_sprite((uint32_t*)b[i],9);
 	}
 
@@ -138,9 +138,10 @@ void Main() {
 		uint16_t ti = modulo(elapsed >> 12, tiles_chars_21_17-tiles_chars_0_0+1) + tiles_chars_0_0;
 		VDP_DATA_W = 128 + 50 + ((elapsed >> 13) & 127); // y
 		VDP_DATA_W = 0x0A00;
-		VDP_DATA_W = ((tiles_directory[ti] >> 16) & 0x6000) | 1024; // Sprite loaded at 0x8000
+		const int sprite_addr = 0xC800;
+		VDP_DATA_W = ((tiles_directory[ti] >> 16) & 0x6000) | (sprite_addr >> 5);
 		VDP_DATA_W = 128 + 20 + ((elapsed >> 12) & 255); // x
-		video_set_vram_write_addr(0x8000);
+		video_set_vram_write_addr(sprite_addr);
 		video_upload_sprite((uint32_t*)tiles_directory[ti],9);
 
 		video_set_vram_write_addr(0xF800);
