@@ -90,7 +90,7 @@ void Main() {
 	video_upload_palette(3,tiles_palette_3);
 
 	video_set_vram_write_addr(0x0800);
-	uint8_t palettes[28];
+	uint8_t palettes[32];
 	const uint32_t *b = tiles_directory + tiles_walls_2_0;
 	for (int i=0; i<27; i++) {
 		palettes[i] = b[i] >> 29;
@@ -101,7 +101,14 @@ void Main() {
 	uint32_t d = tiles_directory[tiles_decor_2_0];
 	palettes[27] = d >> 29;
 	video_upload_sprite((uint32_t*)d,9);
-	
+	for (int i=0; i<8*9; i++)
+		VDP_DATA_L = 0;
+	b = tiles_directory + tiles_decor_1_0;
+	for (int i=0; i<4; i++) {
+		palettes[28+i] = b[i] >> 29;
+		video_upload_sprite((uint32_t*)b[i],9);
+	}
+
 	maze_init(64,palettes);
 	maze_draw(0,0);
 
