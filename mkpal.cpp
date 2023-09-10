@@ -153,9 +153,11 @@ private:
 			assert(nearestDist[e.r][e.g][e.b] == 0);
 		}
 	}
-	void median_cut(const rgb &mini,const rgb &maxi,size_t start,size_t end,int maxColors) {
+	// return value is number of colors we used (might be zero if we match another entry due to low precision)
+	int median_cut(const rgb &mini,const rgb &maxi,size_t start,size_t end,int maxColors) {
+		// printf("median_cut %d,%d,%d-%d,%d,%d, [%zu,%zu) %d\n",mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b,start,end,maxColors);
 		assert(maxColors);
-		if (maxColors == 1) {
+		if (end-start==1 || maxColors == 1) {
 			// Assign everything in [mini,maxi) to a new color slot.
 			auto &fp = finalPalette[nextColor+1];
 			assert(nextColor<=15);
@@ -174,10 +176,10 @@ private:
 			// Make sure we didn't duplicate an existing palette slot
 			for (int i=1; i<=nextColor; i++)
 				if (fp.key==finalPalette[i].key)
-					return;
+					return 0;
 			++nextColor;
 			if (debug>1) printf("map [%d,%d,%d] - (%d,%d,%d) -> %d (%d,%d,%d)\n",mini.r,mini.g,mini.b,maxi.r,maxi.g,maxi.b,nextColor,fp.r,fp.g,fp.b);
-			return;
+			return 1;
 		}
 		/* identify largest axis and split that one */
 		uint8_t dR = maxi.r - mini.r;
@@ -199,10 +201,12 @@ private:
 		rgb miniMid = maxi, midMaxi = mini;
 		miniMid.bytes[axis] = midMaxi.bytes[axis] = asVector[mid].bytes[axis];
 		// Recurse and process each half region, but only if it isn't empty
+		int used = 0;
 		if (mid>start)
-			median_cut(mini,miniMid,start,mid,maxColors>>1);
+			used = median_cut(mini,miniMid,start,mid,maxColors>>1);
 		if (end>mid)
-			median_cut(midMaxi,maxi,mid,end,maxColors-(maxColors>>1));
+			used += median_cut(midMaxi,maxi,mid,end,maxColors-used);
+		return used;
 	}
 };
 
