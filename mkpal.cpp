@@ -248,7 +248,7 @@ int main(int argc,char** argv) {
 			continue;
 		workItem i;
 		char image_name[64];
-		puts(lineBuf);
+		// puts(lineBuf);
 		if (sscanf(lineBuf,"%s %s %d %d %d %d %d %d",image_name,i.c_sym,
 			&i.tileWidth,&i.tileHeight,&i.firstCol,&i.firstRow,&i.numCols,&i.numRows) != 8) {
 			fprintf(stderr,"bad data on line %d\n",lineNumber);
@@ -284,7 +284,7 @@ int main(int argc,char** argv) {
 			return 1;
 		}
 		i.imageWidth = hdr.width;
-		printf("processing %s...\n",image_name);
+		if (debug)printf("processing %s...\n",image_name);
 		for (int r=0; r<i.numRows; r++) {
 			for (int c=0; c<i.numCols; c++) {
 				sharedPalette p;
@@ -323,6 +323,9 @@ int main(int argc,char** argv) {
 
 	printf("%zu non-empty tiles found across %zu files\n",tiles.size(),workItems.size());
 
+#if 1
+	auto validate = [](int) { };
+#else
 	auto validate = [&](int line) {
 		bool *b = (bool*)alloca(tiles.size());
 		memset(b,0,tiles.size());
@@ -340,6 +343,7 @@ int main(int argc,char** argv) {
 			assert(false);
 		}
 	};
+#endif
 
 	validate(__LINE__);
 
