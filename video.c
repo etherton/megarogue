@@ -85,8 +85,13 @@ void video_set_palette_entry(uint8_t baseAddr,uint16_t pe) {
 	VDP_DATA_W = pe;
 }
 
-void video_upload_bitmap_font(const uint8_t *bitmap,uint32_t count,uint8_t c0,uint8_t c1) {
+uint8_t video_first_char;
+
+void video_upload_bitmap_font(const uint8_t *bitmap,uint32_t count,uint8_t c0,uint8_t c1,uint8_t firstChar) {
 	uint8_t a[2] = { c0, c1 };
+	video_first_char = firstChar;
+	bitmap += 8 * firstChar;
+	count *= 8;
 	do {
 		uint8_t b = *bitmap++;
 		uint32_t x = 0;
@@ -99,5 +104,5 @@ void video_upload_bitmap_font(const uint8_t *bitmap,uint32_t count,uint8_t c0,ui
 void video_draw_string(uint16_t addr,uint16_t attrib,const char *s) {
 	video_set_vram_write_addr(addr);
 	while (*s)
-		VDP_DATA_W = *s++ | attrib;
+		VDP_DATA_W = (*s++ - video_first_char) | attrib;
 }

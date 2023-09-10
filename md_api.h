@@ -67,16 +67,16 @@ extern void video_init(uint8_t plane_size /*PLANE_SIZE_...*/);
 #define BELOW_Y_SPLIT	0x80
 extern void video_config_window(uint8_t h,uint8_t v);
 extern void video_enable();
+extern uint8_t video_first_char;
 extern void video_upload_palette(uint8_t slot,const uint16_t* sixteen_values);
 extern void video_upload_sprite(const uint32_t *tiles,uint32_t tileCount);
 extern void video_set_palette_entry(uint8_t base,uint16_t entry);
-extern void video_upload_bitmap_font(const uint8_t*,uint32_t count,uint8_t c0,uint8_t c1);
+extern void video_upload_bitmap_font(const uint8_t*,uint32_t count,uint8_t c0,uint8_t c1,uint8_t firstChar);
 
 inline void video_set_vram_write_addr(uint16_t addr) {
 	VDP_CTRL_L = 0x40000000 | ((addr & 0x3FFF) << 16) | (addr >> 14);
 }
 extern void video_draw_string(uint16_t addr,uint16_t attributes,const char *s);
-// These assume 64 tiles wide
 inline uint16_t video_plane_a_addr(uint8_t x,uint8_t y) {
 	return (y << video_plane_shift) + x + x + 0xC000;
 }

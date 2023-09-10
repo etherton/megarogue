@@ -30,19 +30,19 @@ void interrupt_v() {
 
 static void draw_pad(const char *tag,uint8_t x,uint8_t y,uint16_t attr,uint16_t bits) {
 	video_draw_string(video_plane_a_addr(x,y),attr,tag);
-	VDP_DATA_W = attr | (bits & JOYPAD_UP? 'U' : ' ');
-	VDP_DATA_W = attr | (bits & JOYPAD_DOWN? 'D' : ' ');
-	VDP_DATA_W = attr | (bits & JOYPAD_LEFT? 'L' : ' ');
-	VDP_DATA_W = attr | (bits & JOYPAD_RIGHT? 'R' : ' ');
-	VDP_DATA_W = attr | (bits & JOYPAD_A? 'A' : ' ');
-	VDP_DATA_W = attr | (bits & JOYPAD_B? 'B' : ' ');
-	VDP_DATA_W = attr | (bits & JOYPAD_C? 'C' : ' ');
-	VDP_DATA_W = attr | (bits & JOYPAD_START? 'S' : ' ');
-	VDP_DATA_W = attr | (bits & JOYPAD_X? 'X' : ' ');
-	VDP_DATA_W = attr | (bits & JOYPAD_Y? 'Y' : ' ');
-	VDP_DATA_W = attr | (bits & JOYPAD_Z? 'Z' : ' ');
-	VDP_DATA_W = attr | (bits & JOYPAD_MODE? 'M' : ' ');
-	VDP_DATA_W = attr | (bits & JOYPAD_6? '6' : '3');
+	VDP_DATA_W = attr | (bits & JOYPAD_UP? 'U' : ' ') - video_first_char;
+	VDP_DATA_W = attr | (bits & JOYPAD_DOWN? 'D' : ' ') - video_first_char;
+	VDP_DATA_W = attr | (bits & JOYPAD_LEFT? 'L' : ' ') - video_first_char;
+	VDP_DATA_W = attr | (bits & JOYPAD_RIGHT? 'R' : ' ') - video_first_char;
+	VDP_DATA_W = attr | (bits & JOYPAD_A? 'A' : ' ') - video_first_char;
+	VDP_DATA_W = attr | (bits & JOYPAD_B? 'B' : ' ') - video_first_char;
+	VDP_DATA_W = attr | (bits & JOYPAD_C? 'C' : ' ') - video_first_char;
+	VDP_DATA_W = attr | (bits & JOYPAD_START? 'S' : ' ') - video_first_char;
+	VDP_DATA_W = attr | (bits & JOYPAD_X? 'X' : ' ') - video_first_char;
+	VDP_DATA_W = attr | (bits & JOYPAD_Y? 'Y' : ' ') - video_first_char;
+	VDP_DATA_W = attr | (bits & JOYPAD_Z? 'Z' : ' ') - video_first_char;
+	VDP_DATA_W = attr | (bits & JOYPAD_MODE? 'M' : ' ') - video_first_char;
+	VDP_DATA_W = attr | (bits & JOYPAD_6? '6' : '3') - video_first_char;
 }
 
 extern char _bstart[], _bend[];
@@ -72,11 +72,11 @@ void Main() {
 	// asm volatile("move #$2000,sr");
 
 	video_set_vram_write_addr(0);
-	video_upload_bitmap_font(&font8x8_basic[0][0],8 * 128,0x0,0x7);
+	video_upload_bitmap_font(&font8x8_basic[0][0],64,0x0,0x7,32);
 
 	const uint16_t text_attr = NT_PRIORITY | NT_PALETTE_0;
-	video_draw_string(video_plane_a_addr(10,10),text_attr,flags & REG_VERSION_PAL?"PAL ":"NTSC");
-	video_draw_string(video_plane_a_addr(10,12),text_attr,flags & REG_VERSION_OVERSEAS?"OVERSEAS":"DOMESTIC");
+	// video_draw_string(video_plane_a_addr(10,10),text_attr,flags & REG_VERSION_PAL?"PAL ":"NTSC");
+	// video_draw_string(video_plane_a_addr(10,12),text_attr,flags & REG_VERSION_OVERSEAS?"OVERSEAS":"DOMESTIC");
 
 	video_draw_string(video_plane_w_addr(34,0),0,"STR:18");
 	video_draw_string(video_plane_w_addr(34,1),0,"DEX:11");

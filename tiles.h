@@ -1019,6 +1019,144 @@ extern const uint32_t walls_22_23[];
 extern const uint32_t walls_22_24[];
 extern const uint32_t walls_22_25[];
 extern const uint32_t walls_22_26[];
+extern const uint32_t decor_0_0[];
+extern const uint32_t decor_0_1[];
+extern const uint32_t decor_0_2[];
+extern const uint32_t decor_0_3[];
+extern const uint32_t decor_0_4[];
+extern const uint32_t decor_0_5[];
+extern const uint32_t decor_0_6[];
+extern const uint32_t decor_0_7[];
+extern const uint32_t decor_0_8[];
+extern const uint32_t decor_0_9[];
+extern const uint32_t decor_0_10[];
+extern const uint32_t decor_0_11[];
+extern const uint32_t decor_0_12[];
+extern const uint32_t decor_0_13[];
+extern const uint32_t decor_1_0[];
+extern const uint32_t decor_1_1[];
+extern const uint32_t decor_1_2[];
+extern const uint32_t decor_1_3[];
+extern const uint32_t decor_1_4[];
+extern const uint32_t decor_1_5[];
+extern const uint32_t decor_1_6[];
+extern const uint32_t decor_1_7[];
+extern const uint32_t decor_1_8[];
+extern const uint32_t decor_1_9[];
+extern const uint32_t decor_1_10[];
+extern const uint32_t decor_1_11[];
+extern const uint32_t decor_1_12[];
+extern const uint32_t decor_1_13[];
+extern const uint32_t decor_2_0[];
+extern const uint32_t decor_2_1[];
+extern const uint32_t decor_2_2[];
+extern const uint32_t decor_2_3[];
+extern const uint32_t decor_2_4[];
+extern const uint32_t decor_2_5[];
+extern const uint32_t decor_2_6[];
+extern const uint32_t decor_2_7[];
+extern const uint32_t decor_2_8[];
+extern const uint32_t decor_2_9[];
+extern const uint32_t decor_2_10[];
+extern const uint32_t decor_2_11[];
+extern const uint32_t decor_2_12[];
+extern const uint32_t decor_2_13[];
+extern const uint32_t decor_3_0[];
+extern const uint32_t decor_3_1[];
+extern const uint32_t decor_3_2[];
+extern const uint32_t decor_3_3[];
+extern const uint32_t decor_3_4[];
+extern const uint32_t decor_3_5[];
+extern const uint32_t decor_3_6[];
+extern const uint32_t decor_3_7[];
+extern const uint32_t decor_3_8[];
+extern const uint32_t decor_3_9[];
+extern const uint32_t decor_3_10[];
+extern const uint32_t decor_3_11[];
+extern const uint32_t decor_3_12[];
+extern const uint32_t decor_3_13[];
+extern const uint32_t decor_4_0[];
+extern const uint32_t decor_4_1[];
+extern const uint32_t decor_4_2[];
+extern const uint32_t decor_4_3[];
+extern const uint32_t decor_4_4[];
+extern const uint32_t decor_4_5[];
+extern const uint32_t decor_4_6[];
+extern const uint32_t decor_4_7[];
+extern const uint32_t decor_4_8[];
+extern const uint32_t decor_4_9[];
+extern const uint32_t decor_4_10[];
+extern const uint32_t decor_4_11[];
+extern const uint32_t decor_4_12[];
+extern const uint32_t decor_4_13[];
+extern const uint32_t decor_5_2[];
+extern const uint32_t decor_5_3[];
+extern const uint32_t decor_5_4[];
+extern const uint32_t decor_5_5[];
+extern const uint32_t decor_5_6[];
+extern const uint32_t decor_5_7[];
+extern const uint32_t decor_5_8[];
+extern const uint32_t decor_5_9[];
+extern const uint32_t decor_5_10[];
+extern const uint32_t decor_5_11[];
+extern const uint32_t decor_5_12[];
+extern const uint32_t decor_5_13[];
+extern const uint32_t decor_6_0[];
+extern const uint32_t decor_6_1[];
+extern const uint32_t decor_6_2[];
+extern const uint32_t decor_6_3[];
+extern const uint32_t decor_6_4[];
+extern const uint32_t decor_6_5[];
+extern const uint32_t decor_6_6[];
+extern const uint32_t decor_6_7[];
+extern const uint32_t decor_6_8[];
+extern const uint32_t decor_6_9[];
+extern const uint32_t decor_6_10[];
+extern const uint32_t decor_6_11[];
+extern const uint32_t decor_6_12[];
+extern const uint32_t decor_6_13[];
+extern const uint32_t decor_7_0[];
+extern const uint32_t decor_7_1[];
+extern const uint32_t decor_7_2[];
+extern const uint32_t decor_7_3[];
+extern const uint32_t decor_7_4[];
+extern const uint32_t decor_7_5[];
+extern const uint32_t decor_7_6[];
+extern const uint32_t decor_7_7[];
+extern const uint32_t decor_7_8[];
+extern const uint32_t decor_7_9[];
+extern const uint32_t decor_7_10[];
+extern const uint32_t decor_7_11[];
+extern const uint32_t decor_7_12[];
+extern const uint32_t decor_7_13[];
+extern const uint32_t decor_8_0[];
+extern const uint32_t decor_8_1[];
+extern const uint32_t decor_8_2[];
+extern const uint32_t decor_8_3[];
+extern const uint32_t decor_8_4[];
+extern const uint32_t decor_8_5[];
+extern const uint32_t decor_8_6[];
+extern const uint32_t decor_8_7[];
+extern const uint32_t decor_8_8[];
+extern const uint32_t decor_8_9[];
+extern const uint32_t decor_8_10[];
+extern const uint32_t decor_8_11[];
+extern const uint32_t decor_8_12[];
+extern const uint32_t decor_8_13[];
+extern const uint32_t decor_9_0[];
+extern const uint32_t decor_9_1[];
+extern const uint32_t decor_9_2[];
+extern const uint32_t decor_9_3[];
+extern const uint32_t decor_9_4[];
+extern const uint32_t decor_9_5[];
+extern const uint32_t decor_9_6[];
+extern const uint32_t decor_9_7[];
+extern const uint32_t decor_9_8[];
+extern const uint32_t decor_9_9[];
+extern const uint32_t decor_9_10[];
+extern const uint32_t decor_9_11[];
+extern const uint32_t decor_9_12[];
+extern const uint32_t decor_9_13[];
 enum tiles_enum {
 	tiles_chars_0_0,
 	tiles_chars_0_1,
@@ -2037,6 +2175,144 @@ enum tiles_enum {
 	tiles_walls_22_24,
 	tiles_walls_22_25,
 	tiles_walls_22_26,
+	tiles_decor_0_0,
+	tiles_decor_0_1,
+	tiles_decor_0_2,
+	tiles_decor_0_3,
+	tiles_decor_0_4,
+	tiles_decor_0_5,
+	tiles_decor_0_6,
+	tiles_decor_0_7,
+	tiles_decor_0_8,
+	tiles_decor_0_9,
+	tiles_decor_0_10,
+	tiles_decor_0_11,
+	tiles_decor_0_12,
+	tiles_decor_0_13,
+	tiles_decor_1_0,
+	tiles_decor_1_1,
+	tiles_decor_1_2,
+	tiles_decor_1_3,
+	tiles_decor_1_4,
+	tiles_decor_1_5,
+	tiles_decor_1_6,
+	tiles_decor_1_7,
+	tiles_decor_1_8,
+	tiles_decor_1_9,
+	tiles_decor_1_10,
+	tiles_decor_1_11,
+	tiles_decor_1_12,
+	tiles_decor_1_13,
+	tiles_decor_2_0,
+	tiles_decor_2_1,
+	tiles_decor_2_2,
+	tiles_decor_2_3,
+	tiles_decor_2_4,
+	tiles_decor_2_5,
+	tiles_decor_2_6,
+	tiles_decor_2_7,
+	tiles_decor_2_8,
+	tiles_decor_2_9,
+	tiles_decor_2_10,
+	tiles_decor_2_11,
+	tiles_decor_2_12,
+	tiles_decor_2_13,
+	tiles_decor_3_0,
+	tiles_decor_3_1,
+	tiles_decor_3_2,
+	tiles_decor_3_3,
+	tiles_decor_3_4,
+	tiles_decor_3_5,
+	tiles_decor_3_6,
+	tiles_decor_3_7,
+	tiles_decor_3_8,
+	tiles_decor_3_9,
+	tiles_decor_3_10,
+	tiles_decor_3_11,
+	tiles_decor_3_12,
+	tiles_decor_3_13,
+	tiles_decor_4_0,
+	tiles_decor_4_1,
+	tiles_decor_4_2,
+	tiles_decor_4_3,
+	tiles_decor_4_4,
+	tiles_decor_4_5,
+	tiles_decor_4_6,
+	tiles_decor_4_7,
+	tiles_decor_4_8,
+	tiles_decor_4_9,
+	tiles_decor_4_10,
+	tiles_decor_4_11,
+	tiles_decor_4_12,
+	tiles_decor_4_13,
+	tiles_decor_5_2,
+	tiles_decor_5_3,
+	tiles_decor_5_4,
+	tiles_decor_5_5,
+	tiles_decor_5_6,
+	tiles_decor_5_7,
+	tiles_decor_5_8,
+	tiles_decor_5_9,
+	tiles_decor_5_10,
+	tiles_decor_5_11,
+	tiles_decor_5_12,
+	tiles_decor_5_13,
+	tiles_decor_6_0,
+	tiles_decor_6_1,
+	tiles_decor_6_2,
+	tiles_decor_6_3,
+	tiles_decor_6_4,
+	tiles_decor_6_5,
+	tiles_decor_6_6,
+	tiles_decor_6_7,
+	tiles_decor_6_8,
+	tiles_decor_6_9,
+	tiles_decor_6_10,
+	tiles_decor_6_11,
+	tiles_decor_6_12,
+	tiles_decor_6_13,
+	tiles_decor_7_0,
+	tiles_decor_7_1,
+	tiles_decor_7_2,
+	tiles_decor_7_3,
+	tiles_decor_7_4,
+	tiles_decor_7_5,
+	tiles_decor_7_6,
+	tiles_decor_7_7,
+	tiles_decor_7_8,
+	tiles_decor_7_9,
+	tiles_decor_7_10,
+	tiles_decor_7_11,
+	tiles_decor_7_12,
+	tiles_decor_7_13,
+	tiles_decor_8_0,
+	tiles_decor_8_1,
+	tiles_decor_8_2,
+	tiles_decor_8_3,
+	tiles_decor_8_4,
+	tiles_decor_8_5,
+	tiles_decor_8_6,
+	tiles_decor_8_7,
+	tiles_decor_8_8,
+	tiles_decor_8_9,
+	tiles_decor_8_10,
+	tiles_decor_8_11,
+	tiles_decor_8_12,
+	tiles_decor_8_13,
+	tiles_decor_9_0,
+	tiles_decor_9_1,
+	tiles_decor_9_2,
+	tiles_decor_9_3,
+	tiles_decor_9_4,
+	tiles_decor_9_5,
+	tiles_decor_9_6,
+	tiles_decor_9_7,
+	tiles_decor_9_8,
+	tiles_decor_9_9,
+	tiles_decor_9_10,
+	tiles_decor_9_11,
+	tiles_decor_9_12,
+	tiles_decor_9_13,
 };
 extern const uint32_t tiles_directory[];
 extern const uint16_t tiles_directory_size;
