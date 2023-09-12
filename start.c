@@ -7,8 +7,43 @@
 
 #include "font8x8_basic.h"
 
+
+// Writes to VRAM starting at 0xD040 (the window area)
+
+#define TRAP(code) \
+	VDP_CTRL_L = 0x50400003; \
+	VDP_DATA_W = (uint8_t)(code>>24) - 32; \
+	VDP_DATA_W = (uint8_t)(code>>16) - 32; \
+	VDP_DATA_W = (uint8_t)(code>>8) - 32; \
+	VDP_DATA_W = (uint8_t)(code) - 32; \
+	while(1)
+
 void crash() {
-	while (1);
+	TRAP('UNKN');
+}
+
+void bus_error() {
+	TRAP('BUS ');
+}
+
+void address_error() {
+	TRAP('ADDR');
+}
+
+void illegal_inst() {
+	TRAP('ILLE');
+}
+
+void div_zero() {
+	TRAP('DIV ');
+}
+
+void chk_exception() {
+	TRAP('CHKE');
+}
+
+void trapv_exception() {
+	TRAP('TRPV');
 }
 
 volatile uint8_t vbi;
@@ -99,7 +134,7 @@ void Main() {
 		video_upload_sprite((uint32_t*)b[i],9);
 	}
 	uint32_t d = tiles_directory[tiles_decor_2_0];
-	palettes[27] = d >> 29;
+	palettes[27] = (d >> 29) | 4;
 	video_upload_sprite((uint32_t*)d,9);
 	for (int i=0; i<8*9; i++)
 		VDP_DATA_L = 0;

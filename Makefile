@@ -26,7 +26,7 @@ tiles.c tiles.h: mkpal tile_manifest.txt
 OBJS = vectors.o header.o start.o joypad.o video.o tiles.o maze.o
 
 %.o: %.c
-	/opt/homebrew/bin/m68k-elf-gcc -DNDEBUG -Wno-multichar -march=68000 -fno-tree-loop-distribute-patterns -O1 -c $<
+	/opt/homebrew/bin/m68k-elf-gcc -DNDEBUG -Wno-multichar -march=68000 -fno-tree-loop-distribute-patterns -O3 -c $<
 
 megarogue.rom: $(OBJS) fixrom
 	/opt/homebrew/bin/m68k-elf-ld -T md.script $(OBJS) -o megarogue
