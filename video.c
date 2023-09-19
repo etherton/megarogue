@@ -100,7 +100,6 @@ uint8_t video_first_char;
 void video_upload_bitmap_font(const uint8_t *bitmap,uint32_t count,uint8_t c0,uint8_t c1,uint8_t firstChar) {
 	uint8_t a[2] = { c0, c1 };
 	video_first_char = firstChar;
-	bitmap += 8 * firstChar;
 	count *= 8;
 	do {
 		uint8_t b = *bitmap++;

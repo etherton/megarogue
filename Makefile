@@ -16,7 +16,7 @@ video.o: video.c md_api.h
 
 start.o: start.c md_api.h
 
-main.o: main.c md_api.h md_math.h maze.h tiles.h
+main.o: main.c md_api.h md_math.h maze.h tiles.h font8x8_basic.h
 
 tiles.c tiles.h: mkpal tile_manifest.txt
 	./mkpal tile_manifest.txt tiles 4

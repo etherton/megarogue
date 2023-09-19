@@ -1,6 +1,7 @@
-#include <set>
 #include <string>
 #include <algorithm>
+#include <queue>
+#include <set>
 #include <assert.h>
 #include <stdio.h>
 
@@ -207,6 +208,136 @@ private:
 		if (end>mid)
 			used += median_cut(midMaxi,maxi,mid,end,maxColors-used);
 		return used;
+	}
+};
+
+static size_t accum_in, accum_rle, accum_out;
+
+class compressor {
+	uint8_t *input;
+	uint32_t *tally;
+	uint8_t *index;
+	size_t cursor,inputSize;
+	uint8_t inputRange, symbolRange;	// also the value of the RLE symbol
+	uint8_t maxRun;		// max run length; must either zero to disable RLE, or at least 3
+	uint8_t prev, prevPrev;
+	uint8_t runLength;
+public:
+	compressor(size_t inputSize_,uint8_t inputRange_,uint8_t maxRun_) : inputSize(inputSize_), inputRange(inputRange_), maxRun(maxRun_) {
+		assert(maxRun==0 || maxRun>=3);
+		symbolRange = inputRange + (maxRun? maxRun-2 : 0);
+		input = new uint8_t[inputSize];
+		index = new uint8_t[symbolRange];
+		std::fill(index,index+symbolRange,0);
+		tally = new uint32_t[symbolRange];
+		std::fill(tally,tally+symbolRange,0);
+		cursor = 0;
+		runLength = 0;
+		prev = prevPrev = 0xFF;
+	}
+	void closeRun() {
+		input[cursor++] = runLength-3+inputRange;
+		input[cursor++] = prev;
+		prevPrev = prev = 0xFF;
+		runLength = 0;
+	}
+	void add(uint8_t s) {
+		assert(cursor<inputSize);
+		assert(s<inputRange);
+		if (runLength) {
+			if (prev!=s || runLength==maxRun) {
+				closeRun();
+				input[cursor++] = s;
+			}
+			else
+				++runLength;
+		}
+		else if (prev==prevPrev && prev==s && maxRun) {
+			runLength=3;
+			cursor-=2;
+		}
+		else
+			input[cursor++] = s;
+		prevPrev = prev;
+		prev = s;
+	}
+
+	struct tree_t {
+		struct node_t {
+			uint32_t popularity;
+			uint8_t depth;
+			uint8_t zeroChild, oneChild;	// if oneChild is 0xFF, it's a leaf node containing symbol zeroChild
+		};
+		std::vector<node_t> v;
+		uint8_t newLeaf(uint32_t pop,uint8_t d,uint8_t z,uint8_t o) {
+			// printf("node %zu popularity %u depth=%d %d/%d\n",v.size(),pop,d,z,o);
+			v.emplace_back(node_t { pop, d, z, o });
+			return v.size()-1;
+		}
+		uint8_t addLeaf(uint32_t pop,uint8_t sym) {
+			return newLeaf(pop,0,sym,0xFF);
+		}
+		void raise(uint8_t n) {
+			v[n].depth++;
+			if (v[n].oneChild != 0xFF) {
+				raise(v[n].zeroChild);
+				raise(v[n].oneChild);
+			}
+		}
+		uint8_t addNode(uint8_t c1,uint8_t c2) {
+			assert(c2 != 0xFF);
+			raise(c1);
+			raise(c2);
+			return newLeaf(v[c1].popularity + v[c2].popularity,
+				std::max(v[c1].depth,v[c2].depth), c1, c2);
+		}
+	};
+	
+	// the best this is going to do is 4:1 compression without rle
+	void emit(FILE *f) {
+		if (runLength)
+			closeRun();
+		// tally all symbols, including the RLE lengths
+		for (size_t i=0; i<cursor; i++)
+			tally[input[i]]++;
+
+		tree_t t;
+		auto cmp = [&t](const uint8_t a,const uint8_t b) { 
+			return t.v[a].popularity > t.v[b].popularity;
+		};
+		std::priority_queue<uint8_t,std::vector<uint8_t>,decltype(cmp)> q(cmp);
+
+		// construct a min prio q and remember where each leaf node is.
+		for (uint32_t i=0; i<symbolRange; i++)
+			if (tally[i]) {
+				q.push(index[i] = t.addLeaf(tally[i],1));
+			}
+		assert(q.size());
+		while (q.size()>1) {
+			auto a = q.top(); q.pop();
+			auto b = q.top(); q.pop();
+			q.push(t.addNode(a,b));
+		}
+		// once we've built the tree, we only need to remember the code lengths.
+		// the lengths themselves can be huffman encoded; zero in particular
+		// is a common length.
+		uint8_t headerLen = 0;
+		uint32_t compressedBits = 0;
+		for (uint32_t i=0; i<symbolRange; i++) {
+			if (tally[i]) {
+				// printf("entry %u (node %u) tally %u depth %u\n",i,index[i],tally[i],t.v[index[i]].depth);
+				compressedBits += tally[i] * t.v[index[i]].depth;
+				// assert(t.v[index[i]].depth < 7);
+				headerLen += 4;
+			}
+			else
+				headerLen++;
+		}
+		// printf("%zu bits compressed to %zu bits via RLE, then %u+%u=%u bits\n",inputSize*4,cursor*4,headerLen,compressedBits,headerLen+compressedBits);	
+		fprintf(f,"%zu bits compressed to %zu bits via RLE, then %u+%u=%u bits",inputSize*4,cursor*4,headerLen,compressedBits,headerLen+compressedBits);	
+		accum_in += inputSize * 4;
+		accum_rle += cursor * 4;
+		accum_out += headerLen + compressedBits;
 	}
 };
 
@@ -461,6 +592,7 @@ int main(int argc,char** argv) {
 		auto &p = *t.sp;
 		workItem &w = workItems[t.workItem];
 		fprintf(cfile,"const uint32_t %s[] = {\n",t.name);
+		compressor k(w.tileWidth * w.tileHeight,16,10);
 		for (int c=0; c<w.tileWidth; c+=8) {
 			for (int r=0; r<w.tileHeight; r+=8) {
 				fprintf(cfile,"\t");
@@ -468,15 +600,18 @@ int main(int argc,char** argv) {
 					uint32_t pix = 0;
 					uint32_t o = t.offset + 4 * (w.imageWidth*(r+y) + c);
 					for (int x=0; x<8; x++,o+=4) {
-						pix <<= 4;
-						pix |= p.remap(w.pixelData[o+2],w.pixelData[o+1],w.pixelData[o+0],w.pixelData[o+3]);
+						uint8_t thisPix = p.remap(w.pixelData[o+2],w.pixelData[o+1],w.pixelData[o+0],w.pixelData[o+3]);
+						pix = (pix << 4) | thisPix;
+						k.add(thisPix);
 					}
 					fprintf(cfile,"0x%08x,",pix);
 				}
 				fprintf(cfile,"\n");
 			}
 		}
-		fprintf(cfile,"};\n\n");
+		fprintf(cfile,"}; /* ");
+		k.emit(cfile);
+		fprintf(cfile," */\n\n");
 		fprintf(hfile,"extern const uint32_t %s[];\n",t.name);
 	}
 
@@ -494,5 +629,8 @@ int main(int argc,char** argv) {
 
 	fclose(cfile);
 	fclose(hfile);
+
+	printf("total in %zu bits, %zu bits after RLE, %zu total output, %zu%% of orig size\n",accum_in,accum_rle,accum_out,
+		(accum_out*100)/accum_in);
 	return 0;
 }
