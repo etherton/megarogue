@@ -324,27 +324,70 @@ public:
 		// is a common length.
 		uint8_t headerLen = 0;
 		uint32_t compressedBits = 0;
-		fprintf(f,"header[");
-		static const uint8_t depthHuff[16] = { 1, 5, 4, 4, 4, 4, 4, 4, 5, 5, 5, 255, 255, 255, 255, 255 };
-		for (uint32_t i=0; i<symbolRange; i++) {
+		//fprintf(f,"header[");
+		static const uint8_t depthWidths[16] = { 1, 5, 4, 4, 4, 4, 4, 4, 5, 5, 5, 255, 255, 255, 255, 255 };
+		static const uint8_t depthCodes[16] = { 0, 0b10000, 0b1010, 0b1011, 0b1100, 0b1101, 0b1110, 0b1111,
+				0b10001, 0b10010, 0b10011 };
+		struct code { uint8_t symbol; uint8_t width; uint16_t code; };
+		std::vector<code> codes;
+		for (uint8_t i=0; i<symbolRange; i++) {
 			if (tally[i]) {
 				// printf("entry %u (node %u) tally %u depth %u\n",i,index[i],tally[i],t.v[index[i]].depth);
 				compressedBits += tally[i] * t.v[index[i]].depth;
+				codes.emplace_back(code { i, t.v[index[i]].depth, 0});
 				// assert(t.v[index[i]].depth < 7);
-				headerLen += depthHuff[t.v[index[i]].depth];
-				fprintf(f,"%x",t.v[index[i]].depth);
+				headerLen += depthWidths[t.v[index[i]].depth];
+				// fprintf(f,"%x",t.v[index[i]].depth);
 				headerTally[t.v[index[i]].depth]++;
 			}
 			else {
 				headerTally[0]++;
-				fprintf(f,"0");
+				codes.emplace_back(code { i, 0, 0 });
+				// fprintf(f,"0");
 				headerLen++;
 			}
-			if (i+1==inputRange && maxRun)
-				fprintf(f,"|");
+			/*if (i+1==inputRange && maxRun)
+				fprintf(f,"|"); */
 		}
-		// printf("%zu bits compressed to %zu bits via RLE, then %u+%u=%u bits\n",inputSize*4,cursor*4,headerLen,compressedBits,headerLen+compressedBits);	
-		fprintf(f,"] %zu bits compressed to %zu bits via RLE, then %u+%u=%u bits ",inputSize*4,cursor*4,headerLen,compressedBits,headerLen+compressedBits);	
+		// Sort by width, then by symbol (all empty codes sort to the front)
+		std::sort(codes.begin(),codes.end(),[](const code &a,const code &b) { 
+			return a.width < b.width || (a.width == b.width && a.symbol < b.symbol); });
+		for (int i=0; i<codes.size()-1; i++) {
+			if (codes[i].width)
+				codes[i+1].code = (codes[i].code + 1) << (codes[i+1].width - codes[i].width);
+		}
+		// Re-sort by symbol (original symbol order)
+		std::sort(codes.begin(),codes.end(),[](const code &a,const code &b) { return a.symbol < b.symbol; });
+
+		uint32_t bitBuffer = 0, currentShift = 32, counter = 0;
+		auto emit_bits = [&](uint8_t width,uint32_t code) {
+			assert(width);
+			if (currentShift >= width) {
+				currentShift -= width;
+				bitBuffer |= code << currentShift;
+			}
+			else {
+				bitBuffer |= code >> (width - currentShift);
+				fprintf(f,"%s%08x,%s",(counter&7)==0?"\t":"",bitBuffer,(counter&7)==7?"\n":" ");
+				++counter;
+				currentShift = currentShift + 32 - width;
+				bitBuffer |= code << currentShift;
+			}
+		};
+		// Emit the header (a run of code widths that themselves are huffman encoded)
+		for (uint8_t i=0; i<symbolRange; i++)
+			emit_bits(depthWidths[codes[i].width],depthCodes[codes[i].width]);
+
+		// Emit the actual data
+		for (uint32_t i=0; i<cursor; i++)
+			emit_bits(codes[input[i]].width,codes[input[i]].code);
+
+		// Flush the bit buffer
+		emit_bits(31,0);
+
+		if ((counter&7)!=7) 
+			fputc('\n',f);
+		fprintf(f,"\t// %zu bits compressed to %zu bits via RLE, then %u+%u=%u bits\n",inputSize*4,cursor*4,headerLen,compressedBits,headerLen+compressedBits);	
 		accum_in += inputSize * 4;
 		accum_rle += cursor * 4;
 		accum_out += headerLen + compressedBits;
@@ -639,6 +682,7 @@ int main(int argc,char** argv) {
 		fprintf(hfile,"extern const uint16_t %s_palette_%d[];\n",argv[2],i);
 	}
 
+	bool doCompress = strcmp(argv[4],"none");
 	for (auto &t: tiles) {
 		auto &p = *t.sp;
 		workItem &w = workItems[t.workItem];
@@ -653,20 +697,23 @@ int main(int argc,char** argv) {
 					for (int x=0; x<8; x++,o+=4) {
 						uint8_t thisPix = p.remap(w.pixelData[o+2],w.pixelData[o+1],w.pixelData[o+0],w.pixelData[o+3]);
 						pix = (pix << 4) | thisPix;
-						k.add(thisPix);
+						if (doCompress)
+							k.add(thisPix);
 					}
-					fprintf(cfile,"0x%08x,",pix);
+					if (!doCompress)
+						fprintf(cfile,"0x%08x,",pix);
 				}
-				fprintf(cfile,"\n");
+				if (!doCompress)
+					fprintf(cfile,"\n");
 			}
+			if (doCompress)
+				k.emit(cfile);
 		}
-		fprintf(cfile,"}; /* ");
-		k.emit(cfile);
-		fprintf(cfile," */\n\n");
+		fprintf(cfile,"};\n");
 		fprintf(hfile,"extern const uint32_t %s[];\n",t.name);
 	}
 
-	compressor::finalize();
+	// compressor::finalize();
 
 	fprintf(hfile,"enum %s_enum {\n",argv[2]);
 	fprintf(cfile,"\nconst uint32_t %s_directory[] = {\n",argv[2]);
