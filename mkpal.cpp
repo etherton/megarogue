@@ -222,6 +222,7 @@ class compressor {
 	uint8_t maxRun;		// max run length; must either zero to disable RLE, or at least 3
 	uint8_t prev, prevPrev;
 	uint8_t runLength;
+	static uint32_t headerTally[16];
 public:
 	compressor(size_t inputSize_,uint8_t inputRange_,uint8_t maxRun_) : inputSize(inputSize_), inputRange(inputRange_), maxRun(maxRun_) {
 		assert(maxRun==0 || maxRun>=3);
@@ -323,31 +324,81 @@ public:
 		// is a common length.
 		uint8_t headerLen = 0;
 		uint32_t compressedBits = 0;
+		fprintf(f,"header[");
+		static const uint8_t depthHuff[16] = { 1, 5, 4, 4, 4, 4, 4, 4, 5, 5, 5, 255, 255, 255, 255, 255 };
 		for (uint32_t i=0; i<symbolRange; i++) {
 			if (tally[i]) {
 				// printf("entry %u (node %u) tally %u depth %u\n",i,index[i],tally[i],t.v[index[i]].depth);
 				compressedBits += tally[i] * t.v[index[i]].depth;
 				// assert(t.v[index[i]].depth < 7);
-				headerLen += 4;
+				headerLen += depthHuff[t.v[index[i]].depth];
+				fprintf(f,"%x",t.v[index[i]].depth);
+				headerTally[t.v[index[i]].depth]++;
 			}
-			else
+			else {
+				headerTally[0]++;
+				fprintf(f,"0");
 				headerLen++;
+			}
+			if (i+1==inputRange && maxRun)
+				fprintf(f,"|");
 		}
 		// printf("%zu bits compressed to %zu bits via RLE, then %u+%u=%u bits\n",inputSize*4,cursor*4,headerLen,compressedBits,headerLen+compressedBits);	
-		fprintf(f,"%zu bits compressed to %zu bits via RLE, then %u+%u=%u bits",inputSize*4,cursor*4,headerLen,compressedBits,headerLen+compressedBits);	
+		fprintf(f,"] %zu bits compressed to %zu bits via RLE, then %u+%u=%u bits ",inputSize*4,cursor*4,headerLen,compressedBits,headerLen+compressedBits);	
 		accum_in += inputSize * 4;
 		accum_rle += cursor * 4;
 		accum_out += headerLen + compressedBits;
 	}
+	static void finalize() {
+		tree_t t;
+		auto cmp = [&t](const uint8_t a,const uint8_t b) { 
+			return t.v[a].popularity > t.v[b].popularity;
+		};
+		std::priority_queue<uint8_t,std::vector<uint8_t>,decltype(cmp)> q(cmp);
+
+		// construct a min prio q and remember where each leaf node is.
+		uint8_t index[16];
+		for (uint32_t i=0; i<16; i++)
+			if (headerTally[i])
+				q.push(index[i] = t.addLeaf(headerTally[i],i));
+		assert(q.size());
+		while (q.size()>1) {
+			auto a = q.top(); q.pop();
+			auto b = q.top(); q.pop();
+			q.push(t.addNode(a,b));
+		}
+		for (uint32_t i=0; i<16; i++)
+			if (headerTally[i])
+				printf("depth %d encodes in %d bits\n",i,t.v[index[i]].depth);
+	}
 };
+uint32_t compressor::headerTally[16];
+/*
+depth 0 encodes in 1 bits
+depth 1 encodes in 6 bits
+depth 2 encodes in 4 bits
+depth 3 encodes in 4 bits
+depth 4 encodes in 4 bits
+depth 5 encodes in 3 bits
+depth 6 encodes in 4 bits
+depth 7 encodes in 4 bits
+depth 8 encodes in 5 bits
+depth 9 encodes in 7 bits
+depth 10 encodes in 7 bits
+
+0 -> 0
+2/3/4/5/6/7 -> 1010,1011,1100,1101,1110,1111
+1/8/9/10 -> 10000,10001,10010,10011
+*/
 
 int main(int argc,char** argv) {
 	if (argc<4) {
-		fprintf(stderr,"args: manifest_name c_file palette_count\n");
+		fprintf(stderr,"args: manifest_name c_file palette_count max_rle_run\n");
 		return 1;
 	}
 	FILE *m = fopen(argv[1],"r");
 	int nPal = atoi(argv[3]);
+	int maxRun = atoi(argv[4]);
 	if (!m) {
 		fprintf(stderr,"unable to open %s\n",argv[1]);
 		return 1;
@@ -592,7 +643,7 @@ int main(int argc,char** argv) {
 		auto &p = *t.sp;
 		workItem &w = workItems[t.workItem];
 		fprintf(cfile,"const uint32_t %s[] = {\n",t.name);
-		compressor k(w.tileWidth * w.tileHeight,16,10);
+		compressor k(w.tileWidth * w.tileHeight,16,maxRun);
 		for (int c=0; c<w.tileWidth; c+=8) {
 			for (int r=0; r<w.tileHeight; r+=8) {
 				fprintf(cfile,"\t");
@@ -614,6 +665,8 @@ int main(int argc,char** argv) {
 		fprintf(cfile," */\n\n");
 		fprintf(hfile,"extern const uint32_t %s[];\n",t.name);
 	}
+
+	compressor::finalize();
 
 	fprintf(hfile,"enum %s_enum {\n",argv[2]);
 	fprintf(cfile,"\nconst uint32_t %s_directory[] = {\n",argv[2]);
