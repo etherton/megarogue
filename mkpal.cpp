@@ -349,29 +349,41 @@ public:
 			/*if (i+1==inputRange && maxRun)
 				fprintf(f,"|"); */
 		}
+		auto huff_string = [](uint32_t width,uint32_t code) {
+			static char buf[33];
+			assert(width && width<=32);
+			buf[width] = 0;
+			do {
+				buf[--width] = '0' + (code & 1);
+				code >>= 1;
+			} while (width);
+			return buf;
+		};
 		// Sort by width, then by symbol (all empty codes sort to the front)
 		std::sort(codes.begin(),codes.end(),[](const code &a,const code &b) { 
 			return a.width < b.width || (a.width == b.width && a.symbol < b.symbol); });
 		for (int i=0; i<codes.size()-1; i++) {
-			if (codes[i].width)
+			if (codes[i].width) {
 				codes[i+1].code = (codes[i].code + 1) << (codes[i+1].width - codes[i].width);
+				// fprintf(f,"// symbol %d is %s\n",codes[i].symbol,huff_string(codes[i].width,codes[i].code));
+			}
 		}
 		// Re-sort by symbol (original symbol order)
 		std::sort(codes.begin(),codes.end(),[](const code &a,const code &b) { return a.symbol < b.symbol; });
 
-		uint32_t bitBuffer = 0, currentShift = 32, counter = 0;
-		auto emit_bits = [&](uint8_t width,uint32_t code) {
+		uint16_t bitBuffer = 0, currentShift = 16, counter = 0;
+		auto emit_bits = [&](uint8_t width,uint16_t code) {
 			assert(width);
-			if (currentShift >= width) {
+			if (currentShift > width) {
 				currentShift -= width;
 				bitBuffer |= code << currentShift;
 			}
 			else {
 				bitBuffer |= code >> (width - currentShift);
-				fprintf(f,"%s%08x,%s",(counter&7)==0?"\t":"",bitBuffer,(counter&7)==7?"\n":" ");
+				fprintf(f,"%s0x%04x,%s",(counter&15)==0?"\t":"",bitBuffer,(counter&15)==15?"\n":" ");
 				++counter;
-				currentShift = currentShift + 32 - width;
-				bitBuffer |= code << currentShift;
+				currentShift = currentShift + 16 - width;
+				bitBuffer = currentShift==16? 0 : code << currentShift;
 			}
 		};
 		// Emit the header (a run of code widths that themselves are huffman encoded)
@@ -379,13 +391,15 @@ public:
 			emit_bits(depthWidths[codes[i].width],depthCodes[codes[i].width]);
 
 		// Emit the actual data
-		for (uint32_t i=0; i<cursor; i++)
+		for (uint32_t i=0; i<cursor; i++) {
+			assert(codes[input[i]].symbol == input[i]);
 			emit_bits(codes[input[i]].width,codes[input[i]].code);
+		}
 
 		// Flush the bit buffer
-		emit_bits(31,0);
+		emit_bits(15,0);
 
-		if ((counter&7)!=7) 
+		if ((counter&15)) 
 			fputc('\n',f);
 		fprintf(f,"\t// %zu bits compressed to %zu bits via RLE, then %u+%u=%u bits\n",inputSize*4,cursor*4,headerLen,compressedBits,headerLen+compressedBits);	
 		accum_in += inputSize * 4;
@@ -686,11 +700,12 @@ int main(int argc,char** argv) {
 	for (auto &t: tiles) {
 		auto &p = *t.sp;
 		workItem &w = workItems[t.workItem];
-		fprintf(cfile,"const uint32_t %s[] = {\n",t.name);
+		fprintf(cfile,"const uint16_t %s[] = {\n",t.name);
 		compressor k(w.tileWidth * w.tileHeight,16,maxRun);
 		for (int c=0; c<w.tileWidth; c+=8) {
 			for (int r=0; r<w.tileHeight; r+=8) {
-				fprintf(cfile,"\t");
+				if (!doCompress)
+					fprintf(cfile,"\t");
 				for (int y=0; y<8; y++) {
 					uint32_t pix = 0;
 					uint32_t o = t.offset + 4 * (w.imageWidth*(r+y) + c);
@@ -701,16 +716,16 @@ int main(int argc,char** argv) {
 							k.add(thisPix);
 					}
 					if (!doCompress)
-						fprintf(cfile,"0x%08x,",pix);
+						fprintf(cfile,"0x%04x,0x%04x, ",pix>>16,(uint16_t)pix);
 				}
 				if (!doCompress)
 					fprintf(cfile,"\n");
 			}
-			if (doCompress)
-				k.emit(cfile);
 		}
+		if (doCompress)
+			k.emit(cfile);
 		fprintf(cfile,"};\n");
-		fprintf(hfile,"extern const uint32_t %s[];\n",t.name);
+		fprintf(hfile,"extern const uint16_t %s[];\n",t.name);
 	}
 
 	// compressor::finalize();
