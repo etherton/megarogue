@@ -223,23 +223,34 @@ private:
 
 static size_t accum_in, accum_rle, accum_out;
 
+static char* huff_string(uint32_t width,uint32_t code) {
+	static char buf[33];
+	assert(width && width<=32);
+	buf[width] = 0;
+	do {
+		buf[--width] = '0' + (code & 1);
+		code >>= 1;
+	} while (width);
+	return buf;
+}
+
+
 class compressor {
 	uint8_t *input;
 	uint32_t *tally;
-	uint8_t *index;
 	size_t cursor,inputSize;
 	uint8_t inputRange, symbolRange;	// also the value of the RLE symbol
 	uint8_t maxRun;		// max run length; must either zero to disable RLE, or at least 3
 	uint8_t prev, prevPrev;
 	uint8_t runLength;
 	static uint32_t headerTally[16];
+	static uint8_t depthWidths[16];
+	static uint16_t depthCodes[16];
 public:
 	compressor(size_t inputSize_,uint8_t inputRange_,uint8_t maxRun_) : inputSize(inputSize_), inputRange(inputRange_), maxRun(maxRun_) {
 		assert(maxRun==0 || maxRun>=3);
 		symbolRange = inputRange + (maxRun? maxRun-2 : 0);
 		input = new uint8_t[inputSize];
-		index = new uint8_t[symbolRange];
-		std::fill(index,index+symbolRange,0);
 		tally = new uint32_t[symbolRange];
 		std::fill(tally,tally+symbolRange,0);
 		cursor = 0;
@@ -303,26 +314,23 @@ public:
 				std::max(v[c1].depth,v[c2].depth), c1, c2);
 		}
 	};
-	
-	// the best this is going to do is 4:1 compression without rle
-	void emit(FILE *f) {
-		if (runLength)
-			closeRun();
-		// tally all symbols, including the RLE lengths
-		for (size_t i=0; i<cursor; i++)
-			tally[input[i]]++;
+	struct code { uint8_t symbol; uint8_t width; uint16_t code; };
+	static std::vector<code> headerCodes;
+	std::vector<code> bodyCodes;
 
+	static uint32_t build_tree(const uint32_t *tally,uint32_t range,std::vector<code> &codes) {
 		tree_t t;
+		uint32_t compressedBits = 0;
 		auto cmp = [&t](const uint8_t a,const uint8_t b) { 
 			return t.v[a].popularity > t.v[b].popularity;
 		};
+		uint8_t *index = (uint8_t*)alloca(range);
 		std::priority_queue<uint8_t,std::vector<uint8_t>,decltype(cmp)> q(cmp);
 
 		// construct a min prio q and remember where each leaf node is.
-		for (uint32_t i=0; i<symbolRange; i++)
-			if (tally[i]) {
+		for (uint32_t i=0; i<range; i++)
+			if (tally[i])
 				q.push(index[i] = t.addLeaf(tally[i],1));
-			}
 		assert(q.size());
 		// If there is only one node (possible only without RLE) then set its depth properly
 		if (q.size()==1)
@@ -334,46 +342,23 @@ public:
 				q.push(t.addNode(a,b));
 			}
 		}
+
 		// once we've built the tree, we only need to remember the code lengths.
 		// the lengths themselves can be huffman encoded; zero in particular
 		// is a common length.
-		uint8_t headerLen = 0;
-		uint32_t compressedBits = 0;
-		//fprintf(f,"header[");
-		static const uint8_t depthWidths[16] = { 1, 5, 4, 4, 4, 4, 4, 4, 5, 5, 5, 255, 255, 255, 255, 255 };
-		static const uint8_t depthCodes[16] = { 0, 0b10000, 0b1010, 0b1011, 0b1100, 0b1101, 0b1110, 0b1111,
-				0b10001, 0b10010, 0b10011 };
-		struct code { uint8_t symbol; uint8_t width; uint16_t code; };
-		std::vector<code> codes;
-		for (uint8_t i=0; i<symbolRange; i++) {
+		for (uint8_t i=0; i<range; i++) {
 			if (tally[i]) {
-				// printf("entry %u (node %u) tally %u depth %u\n",i,index[i],tally[i],t.v[index[i]].depth);
 				compressedBits += tally[i] * t.v[index[i]].depth;
 				codes.emplace_back(code { i, t.v[index[i]].depth, 0});
-				// assert(t.v[index[i]].depth < 7);
-				headerLen += depthWidths[t.v[index[i]].depth];
-				// fprintf(f,"%x",t.v[index[i]].depth);
-				headerTally[t.v[index[i]].depth]++;
+				if (tally != headerTally)
+					headerTally[t.v[index[i]].depth]++;
 			}
 			else {
-				headerTally[0]++;
+				if (tally != headerTally)
+					headerTally[0]++;
 				codes.emplace_back(code { i, 0, 0 });
-				// fprintf(f,"0");
-				headerLen++;
 			}
-			/*if (i+1==inputRange && maxRun)
-				fprintf(f,"|"); */
 		}
-		auto huff_string = [](uint32_t width,uint32_t code) {
-			static char buf[33];
-			assert(width && width<=32);
-			buf[width] = 0;
-			do {
-				buf[--width] = '0' + (code & 1);
-				code >>= 1;
-			} while (width);
-			return buf;
-		};
 		// Sort by width, then by symbol (all empty codes sort to the front)
 		std::sort(codes.begin(),codes.end(),[](const code &a,const code &b) { 
 			return a.width < b.width || (a.width == b.width && a.symbol < b.symbol); });
@@ -385,7 +370,22 @@ public:
 		}
 		// Re-sort by symbol (original symbol order)
 		std::sort(codes.begin(),codes.end(),[](const code &a,const code &b) { return a.symbol < b.symbol; });
+		return compressedBits;
+	}
 
+	uint32_t bodyBits;
+	static uint32_t headerBits;
+	void process() {
+		if (runLength)
+			closeRun();
+		// tally all symbols, including the RLE lengths
+		for (size_t i=0; i<cursor; i++)
+			tally[input[i]]++;
+
+		bodyBits = build_tree(tally,symbolRange,bodyCodes);
+
+	}
+	void emit(FILE *f) {
 		uint16_t bitBuffer = 0, currentShift = 16, counter = 0;
 		auto emit_bits = [&](uint8_t width,uint16_t code) {
 			assert(width);
@@ -395,73 +395,43 @@ public:
 			}
 			else {
 				bitBuffer |= code >> (width - currentShift);
-				fprintf(f,"%s0x%04x,%s",(counter&15)==0?"\t":"",bitrev(bitBuffer),(counter&15)==15?"\n":" ");
+				fprintf(f,"%s0x%04x,%s",counter&15?"":"\t",bitrev(bitBuffer),(counter&15)!=15?"":"\n");
 				++counter;
 				currentShift = currentShift + 16 - width;
 				bitBuffer = currentShift==16? 0 : code << currentShift;
 			}
 		};
 		// Emit the header (a run of code widths that themselves are huffman encoded)
-		//for (uint8_t i=0; i<symbolRange; i++)
-		//	emit_bits(depthWidths[codes[i].width],depthCodes[codes[i].width]);
+		for (uint8_t i=0; i<symbolRange; i++) {
+			auto &h = headerCodes[bodyCodes[i].width];
+			emit_bits(h.width,h.code);
+		}
 
 		// Emit the actual data
-		for (uint32_t i=0; i<cursor; i++) {
-			assert(codes[input[i]].symbol == input[i]);
-			emit_bits(codes[input[i]].width,codes[input[i]].code);
-		}
+		for (uint32_t i=0; i<cursor; i++)
+			emit_bits(bodyCodes[input[i]].width,bodyCodes[input[i]].code);
 
 		// Flush the bit buffer
 		emit_bits(15,0);
-
-		if ((counter&15)) 
-			fputc('\n',f);
-		fprintf(f,"\t// %zu bits compressed to %zu bits via RLE, then %u+%u=%u bits\n",inputSize*4,cursor*4,headerLen,compressedBits,headerLen+compressedBits);	
+		fprintf(f,"%s\t// %zu bits compressed to %zu bits via RLE, then %u+%u=%u bits\n",
+			counter&15?"\n":"",
+			inputSize*4,cursor*4,headerBits,bodyBits,headerBits+bodyBits);	
 		accum_in += inputSize * 4;
 		accum_rle += cursor * 4;
-		accum_out += headerLen + compressedBits;
+		accum_out += headerBits + bodyBits;
 	}
-	static void finalize() {
-		tree_t t;
-		auto cmp = [&t](const uint8_t a,const uint8_t b) { 
-			return t.v[a].popularity > t.v[b].popularity;
-		};
-		std::priority_queue<uint8_t,std::vector<uint8_t>,decltype(cmp)> q(cmp);
-
-		// construct a min prio q and remember where each leaf node is.
-		uint8_t index[16];
-		for (uint32_t i=0; i<16; i++)
-			if (headerTally[i])
-				q.push(index[i] = t.addLeaf(headerTally[i],i));
-		assert(q.size());
-		while (q.size()>1) {
-			auto a = q.top(); q.pop();
-			auto b = q.top(); q.pop();
-			q.push(t.addNode(a,b));
+	static void finalize(FILE * f) {
+		build_tree(headerTally,11,headerCodes);
+		headerBits = 0;
+		for (int i=0; i<11; i++) {
+			fprintf(f,"// header %d width %d code %s\n",i,headerCodes[i].width,huff_string(headerCodes[i].width,headerCodes[i].code));
+			headerBits += headerCodes[i].width;
 		}
-		for (uint32_t i=0; i<16; i++)
-			if (headerTally[i])
-				printf("depth %d encodes in %d bits\n",i,t.v[index[i]].depth);
 	}
 };
 uint32_t compressor::headerTally[16];
-/*
-depth 0 encodes in 1 bits
-depth 1 encodes in 6 bits
-depth 2 encodes in 4 bits
-depth 3 encodes in 4 bits
-depth 4 encodes in 4 bits
-depth 5 encodes in 3 bits
-depth 6 encodes in 4 bits
-depth 7 encodes in 4 bits
-depth 8 encodes in 5 bits
-depth 9 encodes in 7 bits
-depth 10 encodes in 7 bits
-
-0 -> 0
-2/3/4/5/6/7 -> 1010,1011,1100,1101,1110,1111
-1/8/9/10 -> 10000,10001,10010,10011
-*/
+uint32_t compressor::headerBits;
+std::vector<compressor::code> compressor::headerCodes;
 
 int main(int argc,char** argv) {
 	if (argc<4) {
@@ -490,6 +460,7 @@ int main(int argc,char** argv) {
 		uint8_t workItem;
 		uint8_t row, col;
 		char name[32-15];
+		compressor *k;
 	};
 	struct workItem {
 		char cfile_name[64];
@@ -561,6 +532,7 @@ int main(int argc,char** argv) {
 					t.workItem = workItems.size();
 					t.row = r; t.col = c;
 					snprintf(t.name,sizeof(t.name),"%s_%d_%d",i.c_sym,r,c);
+					t.k = nullptr;
 					sharedPalettes.push_back(t.sp);
 					tiles.push_back(std::move(t));
 				}
@@ -715,8 +687,10 @@ int main(int argc,char** argv) {
 	for (auto &t: tiles) {
 		auto &p = *t.sp;
 		workItem &w = workItems[t.workItem];
-		fprintf(cfile,"const uint16_t %s[] = {\n",t.name);
-		compressor k(w.tileWidth * w.tileHeight,16,maxRun);
+		if (doCompress)
+			t.k = new compressor(w.tileWidth * w.tileHeight,16,maxRun);
+		else
+			fprintf(cfile,"const uint16_t %s[] = {\n",t.name);
 		for (int c=0; c<w.tileWidth; c+=8) {
 			for (int r=0; r<w.tileHeight; r+=8) {
 				if (!doCompress)
@@ -728,7 +702,7 @@ int main(int argc,char** argv) {
 						uint8_t thisPix = p.remap(w.pixelData[o+2],w.pixelData[o+1],w.pixelData[o+0],w.pixelData[o+3]);
 						pix = (pix << 4) | thisPix;
 						if (doCompress)
-							k.add(thisPix);
+							t.k->add(thisPix);
 					}
 					if (!doCompress)
 						fprintf(cfile,"0x%04x,0x%04x, ",pix>>16,(uint16_t)pix);
@@ -738,13 +712,20 @@ int main(int argc,char** argv) {
 			}
 		}
 		if (doCompress)
-			k.emit(cfile);
-		fprintf(cfile,"};\n");
+			t.k->process();
+		else
+			fprintf(cfile,"};\n");
 		fprintf(hfile,"extern const uint16_t %s[];\n",t.name);
 	}
 
-	if (doCompress)
-		compressor::finalize();
+	if (doCompress) {
+		compressor::finalize(cfile);
+		for (auto &t: tiles) {
+			fprintf(cfile,"const uint16_t %s[] = {\n",t.name);
+			t.k->emit(cfile);
+			fprintf(cfile,"};\n");
+		}
+	}
 
 	fprintf(hfile,"enum %s_enum {\n",argv[2]);
 	fprintf(cfile,"\nconst uint32_t %s_directory[] = {\n",argv[2]);
