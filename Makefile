@@ -8,6 +8,10 @@ fixrom: fixrom.cpp
 mkpal: mkpal.cpp targa_header.h
 	clang -Wall -O3 -std=c++11 mkpal.cpp -lc++ -o mkpal
 
+mkpald:
+	clang -Wall -O0 -g -std=c++11 mkpal.cpp -lc++ -o mkpal
+	lldb mkpal tile_manifest.txt tiles 4 0
+
 maze.o: maze.c md_api.h md_math.h maze.h
 
 joypad.o: joypad.c md_api.h
@@ -20,7 +24,7 @@ main.o: main.c md_api.h md_math.h maze.h tiles.h font8x8_basic.h
 
 tiles.c tiles.h: mkpal tile_manifest.txt
 	# ./mkpal tile_manifest.txt tiles 4 10
-	./mkpal tile_manifest.txt tiles 4 none
+	./mkpal tile_manifest.txt tiles 4 10
 
 # brew install rosco-m68k/toolchain/binutils-cross-m68k
 # brew install rosco-m68k/toolchain/gcc-cross-m68k@13  

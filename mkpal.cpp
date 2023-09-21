@@ -18,6 +18,16 @@ const uint8_t sqrt_tab[49+49+49+1] = {
 	175,176,177,177,178,179,180,180,181,182,182,183,184,185,185,186,187,187,188,189,189,190,191,191,192,193,193,194,
 };
 
+uint16_t bitrev(uint16_t x) {
+	static unsigned char sn[] = { 
+		0b0000, 0b1000, 0b0100, 0b1100, 
+		0b0010, 0b1010, 0b0110, 0b1110,
+		0b0001, 0b1001, 0b0101, 0b1101, 
+		0b0011, 0b1011, 0b0111, 0b1111,
+	};
+	return (sn[x&15] << 12) | (sn[(x>>4)&15]<<8) | (sn[(x>>8)&15]<<4) | sn[x>>12];
+}
+
 struct rgb { 
 	rgb() { key=0; }
 	rgb(uint8_t r_,uint8_t g_,uint8_t b_) {
@@ -314,10 +324,15 @@ public:
 				q.push(index[i] = t.addLeaf(tally[i],1));
 			}
 		assert(q.size());
-		while (q.size()>1) {
-			auto a = q.top(); q.pop();
-			auto b = q.top(); q.pop();
-			q.push(t.addNode(a,b));
+		// If there is only one node (possible only without RLE) then set its depth properly
+		if (q.size()==1)
+			t.v[0].depth = 1;
+		else {
+			while (q.size()>1) {
+				auto a = q.top(); q.pop();
+				auto b = q.top(); q.pop();
+				q.push(t.addNode(a,b));
+			}
 		}
 		// once we've built the tree, we only need to remember the code lengths.
 		// the lengths themselves can be huffman encoded; zero in particular
@@ -380,15 +395,15 @@ public:
 			}
 			else {
 				bitBuffer |= code >> (width - currentShift);
-				fprintf(f,"%s0x%04x,%s",(counter&15)==0?"\t":"",bitBuffer,(counter&15)==15?"\n":" ");
+				fprintf(f,"%s0x%04x,%s",(counter&15)==0?"\t":"",bitrev(bitBuffer),(counter&15)==15?"\n":" ");
 				++counter;
 				currentShift = currentShift + 16 - width;
 				bitBuffer = currentShift==16? 0 : code << currentShift;
 			}
 		};
 		// Emit the header (a run of code widths that themselves are huffman encoded)
-		for (uint8_t i=0; i<symbolRange; i++)
-			emit_bits(depthWidths[codes[i].width],depthCodes[codes[i].width]);
+		//for (uint8_t i=0; i<symbolRange; i++)
+		//	emit_bits(depthWidths[codes[i].width],depthCodes[codes[i].width]);
 
 		// Emit the actual data
 		for (uint32_t i=0; i<cursor; i++) {
@@ -728,7 +743,8 @@ int main(int argc,char** argv) {
 		fprintf(hfile,"extern const uint16_t %s[];\n",t.name);
 	}
 
-	// compressor::finalize();
+	if (doCompress)
+		compressor::finalize();
 
 	fprintf(hfile,"enum %s_enum {\n",argv[2]);
 	fprintf(cfile,"\nconst uint32_t %s_directory[] = {\n",argv[2]);
