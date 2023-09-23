@@ -42,7 +42,7 @@ megarogue.rom: $(OBJS) fixrom
 	./fixrom megarogue.rom
 
 run: megarogue.rom
-	~/Downloads/blastem-osx-0.6.2/dis megarogue.rom > mdr.txt
+	# ~/Downloads/blastem-osx-0.6.2/dis megarogue.rom
 	~/Downloads/blastem-osx-0.6.2/blastem megarogue.rom > /dev/null
 
 debug: megarogue.rom
