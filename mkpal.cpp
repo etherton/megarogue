@@ -267,9 +267,13 @@ public:
 		assert(cursor<inputSize);
 		assert(s<inputRange);
 		if (runLength) {
-			if (prev!=s || runLength==maxRun) {
+			if (prev!=s) {
 				closeRun();
 				input[cursor++] = s;
+			}
+			else if (runLength==maxRun) {	// we have maxRun+1, so turn this into (maxRun+1-3),3
+				input[cursor++] = maxRun-1-3+inputRange;
+				runLength = 3;
 			}
 			else
 				++runLength;
