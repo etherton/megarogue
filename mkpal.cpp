@@ -225,12 +225,11 @@ static size_t accum_in, accum_rle, accum_out;
 
 static char* huff_string(uint32_t width,uint32_t code) {
 	static char buf[33];
-	assert(width && width<=32);
 	buf[width] = 0;
-	do {
+	while (width) {
 		buf[--width] = '0' + (code & 1);
 		code >>= 1;
-	} while (width);
+	}
 	return buf;
 }
 
@@ -427,7 +426,7 @@ public:
 	static void finalize(FILE * f) {
 		build_tree(headerTally,11,headerCodes);
 		headerBits = 0;
-		for (int i=0; i<11; i++) {
+		for (int i=0; i<16 && headerCodes[i].width; i++) {
 			fprintf(f,"// header %d width %d code %s\n",i,headerCodes[i].width,huff_string(headerCodes[i].width,headerCodes[i].code));
 			headerBits += headerCodes[i].width;
 		}
