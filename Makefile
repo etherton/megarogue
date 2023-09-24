@@ -5,11 +5,11 @@ all: fixrom mkpal megarogue.rom run
 fixrom: fixrom.cpp
 	clang fixrom.cpp -lc++ -o fixrom
 
-mkpal: mkpal.cpp targa_header.h
+mkpal: mkpal.cpp targa_header.h huffman_decode.h
 	clang -Wall -O3 -std=c++11 mkpal.cpp -lc++ -o mkpal
 
 mkpald:
-	clang -Wall -O0 -g -std=c++11 mkpal.cpp -lc++ -o mkpal
+	clang -Wall -O0 -DQUICK -g -std=c++11 mkpal.cpp -lc++ -o mkpal
 	lldb mkpal tile_manifest.txt tiles 4 0
 
 maze.o: maze.c md_api.h md_math.h maze.h

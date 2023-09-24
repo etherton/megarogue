@@ -7,6 +7,8 @@
 
 #include "targa_header.h"
 
+#include "huffman_decode.h"
+
 int debug = 0;
 
 // map sqrt(i) to fixed point 4.4
@@ -235,9 +237,9 @@ static char* huff_string(uint32_t width,uint32_t code) {
 
 
 class compressor {
-	uint8_t *input;
+	uint8_t *input, *raw;
 	uint32_t *tally;
-	size_t cursor,inputSize;
+	size_t cursor,rawCursor,inputSize;
 	uint8_t inputRange, symbolRange;	// also the value of the RLE symbol
 	uint8_t maxRun;		// max run length; must either zero to disable RLE, or at least 3
 	uint8_t prev, prevPrev;
@@ -250,9 +252,10 @@ public:
 		assert(maxRun==0 || maxRun>=3);
 		symbolRange = inputRange + (maxRun? maxRun-2 : 0);
 		input = new uint8_t[inputSize];
+		raw = new uint8_t[inputSize];
 		tally = new uint32_t[symbolRange];
 		std::fill(tally,tally+symbolRange,0);
-		cursor = 0;
+		cursor = rawCursor = 0;
 		runLength = 0;
 		prev = prevPrev = 0xFF;
 	}
@@ -265,6 +268,7 @@ public:
 	void add(uint8_t s) {
 		assert(cursor<inputSize);
 		assert(s<inputRange);
+		raw[rawCursor++] = s;
 		if (runLength) {
 			if (prev!=s) {
 				closeRun();
@@ -425,9 +429,19 @@ public:
 	}
 	static void finalize(FILE * f) {
 		build_tree(headerTally,11,headerCodes);
+		uint8_t *widths = (uint8_t*) alloca(headerCodes.size());
+		for (size_t i=0; i<headerCodes.size(); i++)
+			widths[i] = headerCodes[i].width;
+		int8_t tree[128];
+
+		int ts = huffman_generate_tree(tree,widths,headerCodes.size());
+		fprintf(f,"const signed char headerTree[%d] = { ",ts);
+		for (int i=0; i<ts; i++) fprintf(f,"%d,",tree[i]);
+		fprintf(f,"};\n");
+
 		headerBits = 0;
 		for (int i=0; i<16 && headerCodes[i].width; i++) {
-			fprintf(f,"// header %d width %d code %s\n",i,headerCodes[i].width,huff_string(headerCodes[i].width,headerCodes[i].code));
+			// fprintf(f,"// header %d width %d code %s\n",i,headerCodes[i].width,huff_string(headerCodes[i].width,headerCodes[i].code));
 			headerBits += headerCodes[i].width;
 		}
 	}
@@ -636,6 +650,7 @@ int main(int argc,char** argv) {
 
 		validate(__LINE__);
 
+#ifndef QUICK
 		// If it wasn't a proper subset, we need to (for best results!) regenerate the entire shared palette
 		if (bestDist) {
 			auto &p = *sharedPalettes[bestI];
@@ -655,6 +670,7 @@ int main(int argc,char** argv) {
 			}
 			p.median_cut(15);
 		}
+#endif
 	}
 	nPal = sharedPalettes.size();
 	printf("reduced to %zu palettes\n",sharedPalettes.size());
