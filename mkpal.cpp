@@ -247,6 +247,7 @@ class compressor {
 	static uint32_t headerTally[16];
 	static uint8_t depthWidths[16];
 	static uint16_t depthCodes[16];
+	static int8_t headerTree[128];
 public:
 	compressor(size_t inputSize_,uint8_t inputRange_,uint8_t maxRun_) : inputSize(inputSize_), inputRange(inputRange_), maxRun(maxRun_) {
 		assert(maxRun==0 || maxRun>=3);
@@ -268,14 +269,17 @@ public:
 	void add(uint8_t s) {
 		assert(cursor<inputSize);
 		assert(s<inputRange);
-		raw[rawCursor++] = s;
+		if (rawCursor & 1)
+			raw[rawCursor++ >> 1] |= s;
+		else
+			raw[rawCursor++ >> 1] = s << 4;
 		if (runLength) {
 			if (prev!=s) {
 				closeRun();
 				input[cursor++] = s;
 			}
 			else if (runLength==maxRun) {	// we have maxRun+1, so turn this into (maxRun+1-3),3
-				input[cursor++] = maxRun-1-3+inputRange;
+				input[cursor++] = maxRun+1-3-3+inputRange;
 				runLength = 3;
 			}
 			else
@@ -394,6 +398,7 @@ public:
 	}
 	void emit(FILE *f) {
 		uint16_t bitBuffer = 0, currentShift = 16, counter = 0;
+		uint16_t copy[72*8], *cp = copy;
 		auto emit_bits = [&](uint8_t width,uint16_t code) {
 			assert(width);
 			if (currentShift > width) {
@@ -403,6 +408,7 @@ public:
 			else {
 				bitBuffer |= code >> (width - currentShift);
 				fprintf(f,"%s0x%04x,%s",counter&15?"":"\t",bitrev(bitBuffer),(counter&15)!=15?"":"\n");
+				*cp++ = bitrev(bitBuffer);
 				++counter;
 				currentShift = currentShift + 16 - width;
 				bitBuffer = currentShift==16? 0 : code << currentShift;
@@ -426,17 +432,33 @@ public:
 		accum_in += inputSize * 4;
 		accum_rle += cursor * 4;
 		accum_out += headerBits + bodyBits;
+
+		// check the result
+		uint8_t *rawCheck = new uint8_t[inputSize/2];
+		huffman_decode(headerTree,symbolRange,copy,rawCheck,inputSize/2);
+		auto hexdump = [](const uint8_t *data,size_t len) {
+			for (size_t i=0; i<len; i++) {
+				if ((i & 15)==0) printf("%08zx: ",i);
+				printf("%02x ",data[i]);
+				if ((i & 15)==15) printf("\n");
+			}
+		};
+		if (memcmp(rawCheck,raw,inputSize/2)) {
+			printf("huffmandecode check failed\n");
+			hexdump((uint8_t*)raw,32);
+			hexdump((uint8_t*)rawCheck,32);
+			__builtin_trap();
+		}
 	}
 	static void finalize(FILE * f) {
 		build_tree(headerTally,11,headerCodes);
 		uint8_t *widths = (uint8_t*) alloca(headerCodes.size());
 		for (size_t i=0; i<headerCodes.size(); i++)
 			widths[i] = headerCodes[i].width;
-		int8_t tree[128];
 
-		int ts = huffman_generate_tree(tree,widths,headerCodes.size());
+		int ts = huffman_generate_tree(headerTree,widths,headerCodes.size());
 		fprintf(f,"const signed char headerTree[%d] = { ",ts);
-		for (int i=0; i<ts; i++) fprintf(f,"%d,",tree[i]);
+		for (int i=0; i<ts; i++) fprintf(f,"%d,",headerTree[i]);
 		fprintf(f,"};\n");
 
 		headerBits = 0;
@@ -448,6 +470,7 @@ public:
 };
 uint32_t compressor::headerTally[16];
 uint32_t compressor::headerBits;
+int8_t compressor::headerTree[128];
 std::vector<compressor::code> compressor::headerCodes;
 
 int main(int argc,char** argv) {

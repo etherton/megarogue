@@ -2,16 +2,13 @@
 int huffman_generate_tree(int8_t outTree[],const uint8_t *widths,int numCodes) {
 	struct code_t { uint8_t width, symbol; uint16_t code; };
 	assert(numCodes<=24);
-	code_t codes[24];
+	struct code_t codes[24];
 	uint8_t next[24];
-	uint8_t first[12];
+	uint8_t first[12] = {255,255,255,255,255,255,255,255,255,255,255,255};
 
 	// Generate a list sorted by width (in reverse order so final list is in correct direction)
-	*(unsigned*)(first+0) = ~0U;
-	*(unsigned*)(first+4) = ~0U;
-	*(unsigned*)(first+8) = ~0U;
 	for (int i=numCodes; i--;) {
-		assert(widths[i]<12);
+		// assert(widths[i]<12);
 		next[i] = first[widths[i]];
 		first[widths[i]] = i;
 	}
@@ -55,4 +52,58 @@ int huffman_generate_tree(int8_t outTree[],const uint8_t *widths,int numCodes) {
 			codes[i+1].code = (codes[i].code + 1) << (codes[i+1].width - codes[i].width);
 	}
 	return treeLength;
+}
+
+#define DECODE(tree,bitstream,bitOffset,decoded) \
+	decoded = 0; \
+	for(;;) { \
+		int bit = (bitstream[bitOffset >> 4] >> (bitOffset & 15)) & 1; \
+		bitOffset++; \
+		decoded = tree[decoded + bit]; \
+		if (decoded < 0) \
+			decoded = -decoded; \
+		else \
+			break; \
+	}
+		
+
+void huffman_decode(const int8_t *headerTree,size_t headerSize,const uint16_t *bitstream,uint8_t *dest,size_t destSize) {
+	// Decode the header
+	assert(headerSize<=24);
+	uint8_t widths[24];
+	size_t bitOffset = 0;
+	for (size_t i=0; i<headerSize; i++) {
+		int w;
+		DECODE(headerTree,bitstream,bitOffset,w);
+		widths[i] = w;
+	}
+
+	// Use the header to generate the final decode tree
+	int8_t bodyTree[64];
+	huffman_generate_tree(bodyTree,widths,headerSize);
+
+	size_t runLength = 0, destOffset = 0;
+	while (destOffset < destSize+destSize) {
+		int d;
+		DECODE(bodyTree,bitstream,bitOffset,d);
+		if (d >= 16)
+			runLength += d - 13;
+		else if (runLength) {	// runLength will always be at least 3
+			if (destOffset & 1)
+				--runLength,dest[destOffset++>>1] |= d;
+			do {
+				dest[destOffset>>1] = d | (d << 4);
+				destOffset += 2, runLength -= 2;
+			} while (runLength > 1);
+			if (runLength) {
+				dest[destOffset++>>1] = d<<4;
+				runLength = 0;
+			}
+		}
+		else if (destOffset & 1)
+			dest[destOffset++>>1] |= d;
+		else
+			dest[destOffset++>>1] = d << 4;
+	}
+	assert(destOffset == destSize+destSize);
 }

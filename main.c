@@ -5,9 +5,14 @@
 #include "maze.h"
 #include "tiles.h"
 
+#define assert(x) 
+#include "huffman_decode.h"
+
 #include "font8x8_basic.h"
 
 extern volatile uint8_t vbi;
+
+extern const int8_t headerTree[];
 
 static void draw_pad(uint8_t x,uint8_t y,uint16_t attr,uint16_t bits) {
 	video_set_vram_write_addr(video_plane_w_addr(x,y));
@@ -24,6 +29,12 @@ static void draw_pad(uint8_t x,uint8_t y,uint16_t attr,uint16_t bits) {
 	VDP_DATA_W = attr | (bits & JOYPAD_Z? 'Z' : ' ') - video_first_char;
 	VDP_DATA_W = attr | (bits & JOYPAD_MODE? 'M' : ' ') - video_first_char;
 	VDP_DATA_W = attr | (bits & JOYPAD_6? '6' : '3') - video_first_char;
+}
+
+void video_decompress_sprite_3x3(const uint16_t *bitstream) {
+	uint32_t sprite[72];
+	huffman_decode(headerTree,24,bitstream,(uint8_t*)sprite,24*24);
+	video_upload_sprite(sprite,9);
 }
 
 void Main() {
@@ -58,17 +69,17 @@ void Main() {
 		palettes[i] = b[i] >> 29;
 		// 68000 has a 24 bit data bus, upper eight bits aren't used
 		// would ordinarity use lower bits but linker doesn't align to 32 bit boundaries
-		video_upload_sprite((uint32_t*)b[i],9);
+		video_decompress_sprite_3x3((uint16_t*)b[i]);
 	}
 	uint32_t d = tiles_directory[tiles_decor_2_0];
 	palettes[27] = (d >> 29) | 4;
-	video_upload_sprite((uint32_t*)d,9);
+	video_decompress_sprite_3x3((uint16_t*)d);
 	for (int i=0; i<8*9; i++)
 		VDP_DATA_L = 0;
 	b = tiles_directory + tiles_decor_1_0;
 	for (int i=0; i<4; i++) {
 		palettes[28+i] = (b[i] >> 29) | 4; // spider webs have priority
-		video_upload_sprite((uint32_t*)b[i],9);
+		video_decompress_sprite_3x3((uint16_t*)b[i]);
 	}
 
 	maze_init(64,palettes);
@@ -92,19 +103,23 @@ void Main() {
 		timer[1] = (e % 10) + '0'; e /= 10;
 		timer[0] = (e % 10) + '0';
 
+		uint16_t ti = modulo(elapsed >> 12, tiles_chars_21_17-tiles_chars_0_0+1) + tiles_chars_0_0;
+		uint32_t sprite[72];
+		huffman_decode(headerTree,24,(uint16_t*)tiles_directory[ti],(uint8_t*)sprite,24*24);
+
 		while (!vbi);
 		vbi = 0;
 		video_draw_string(video_plane_w_addr(32,10),video_window_attr,timer);
 
 		video_set_vram_write_addr(0xF000);
-		uint16_t ti = modulo(elapsed >> 12, tiles_chars_21_17-tiles_chars_0_0+1) + tiles_chars_0_0;
 		VDP_DATA_W = 128 + 50 + ((elapsed >> 13) & 127); // y
 		VDP_DATA_W = 0x0A00;
 		const int sprite_addr = 0xC800;
 		VDP_DATA_W = ((tiles_directory[ti] >> 16) & 0x6000) | (sprite_addr >> 5);
 		VDP_DATA_W = 128 + 20 + ((elapsed >> 12) & 255); // x
 		video_set_vram_write_addr(sprite_addr);
-		video_upload_sprite((uint32_t*)tiles_directory[ti],9);
+
+		video_upload_sprite(sprite,9);
 
 		video_set_vram_write_addr(0xF800);
 		VDP_DATA_L = (uint16_t)(-off_x) | (-off_x << 16);
