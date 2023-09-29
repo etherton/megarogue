@@ -72,9 +72,9 @@ void Main() {
 		video_decompress_sprite_3x3((uint16_t*)b[i]);
 	}
 	uint32_t d = tiles_directory[tiles_decor_2_0];
-	palettes[27] = (d >> 29) | 4;
-	video_decompress_sprite_3x3((uint16_t*)d);
-	for (int i=0; i<8*9; i++)
+	palettes[27] = (d >> 29) | 4; // doors have priority
+	//video_decompress_sprite_3x3((uint16_t*)d);
+	for (int i=0; i<2*8*9; i++)
 		VDP_DATA_L = 0;
 	b = tiles_directory + tiles_decor_1_0;
 	for (int i=0; i<4; i++) {
@@ -92,6 +92,8 @@ void Main() {
 	uint32_t step = (flags & REG_VERSION_PAL)? 65536/50 : 65536/60;
 	uint32_t next = 0;
 	uint32_t off_x = 0, off_y = 0;
+	uint16_t prevTi = 0xFFFF;
+	uint32_t sprite[72];
 	while (1) {
 		elapsed += step;
 		char timer[6];
@@ -104,8 +106,10 @@ void Main() {
 		timer[0] = (e % 10) + '0';
 
 		uint16_t ti = modulo(elapsed >> 12, tiles_chars_21_17-tiles_chars_0_0+1) + tiles_chars_0_0;
-		uint32_t sprite[72];
-		huffman_decode(headerTree,24,(uint16_t*)tiles_directory[ti],(uint8_t*)sprite,24*24);
+		if (ti != prevTi) {
+			huffman_decode(headerTree,24,(uint16_t*)tiles_directory[ti],(uint8_t*)sprite,24*24);
+			prevTi = ti;
+		}
 
 		while (!vbi);
 		vbi = 0;
