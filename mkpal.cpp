@@ -780,6 +780,7 @@ int main(int argc,char** argv) {
 
 	fprintf(hfile,"extern const uint32_t %s_directory[];\n",argv[2]);
 	fprintf(hfile,"extern const uint16_t %s_directory_size;\n",argv[2]);
+	fprintf(hfile,"#define NSYMS %u\n",maxRun?14+maxRun:16);
 
 	fclose(cfile);
 	fclose(hfile);

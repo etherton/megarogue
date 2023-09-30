@@ -89,9 +89,9 @@ uint32_t huffman_decode_header(int8_t outTree[],const int8_t *headerTree,uint32_
 }
 
 uint32_t huffman_decode_body(const int8_t *bodyTree,const uint16_t *bitstream,uint8_t *dest,uint32_t endOffset,uint32_t progress) {
-	size_t runLength = 0;
+	uint16_t runLength = 0;
 	uint16_t bitOffset = (uint16_t) progress;
-	size_t destOffset = progress >> 16;
+	uint16_t destOffset = progress >> 16;
 	while (destOffset < endOffset || runLength) {
 		int d;
 		DECODE(bodyTree,bitstream,bitOffset,d);
@@ -114,7 +114,7 @@ uint32_t huffman_decode_body(const int8_t *bodyTree,const uint16_t *bitstream,ui
 		else
 			dest[destOffset++>>1] = d << 4;
 	}
-	return (destOffset << 16) | bitOffset;;
+	return (destOffset << 16) | bitOffset;
 }
 
 void huffman_decode(const int8_t *headerTree,uint32_t headerSize,const uint16_t *bitstream,uint8_t *dest,uint32_t destSize) {

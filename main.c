@@ -33,7 +33,7 @@ static void draw_pad(uint8_t x,uint8_t y,uint16_t attr,uint16_t bits) {
 
 void video_decompress_sprite_3x3(const uint16_t *bitstream) {
 	uint32_t sprite[72];
-	huffman_decode(headerTree,24,bitstream,(uint8_t*)sprite,24*12);
+	huffman_decode(headerTree,NSYMS,bitstream,(uint8_t*)sprite,24*24/2);
 	video_upload_sprite(sprite,9);
 }
 
@@ -119,7 +119,7 @@ void Main() {
 	while (1) {
 		elapsed += step;
 
-		uint16_t ti = modulo(elapsed >> 15, tiles_chars_21_17-tiles_chars_0_0+1) + tiles_chars_0_0;
+		uint16_t ti = tiles_chars_0_0;//modulo(elapsed >> 15, tiles_chars_21_17-tiles_chars_0_0+1) + tiles_chars_0_0;
 		if (ti != prevTi)  {
 			state = 1;
 			prevTi = ti;
@@ -127,7 +127,7 @@ void Main() {
 		}
 		if (state == 1) {
 			profile1 = hblanks;
-			progress = huffman_decode_header(bodyTree,headerTree,24,src);
+			progress = huffman_decode_header(bodyTree,headerTree,NSYMS,src);
 			state = 2;
 			profile1 = hblanks - profile1;
 		}

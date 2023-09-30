@@ -2316,3 +2316,4 @@ enum tiles_enum {
 };
 extern const uint32_t tiles_directory[];
 extern const uint16_t tiles_directory_size;
+#define NSYMS 24
