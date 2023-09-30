@@ -5,7 +5,6 @@
 #include "maze.h"
 #include "tiles.h"
 
-#define assert(x) 
 #include "huffman_decode.h"
 
 #include "font8x8_basic.h"
@@ -33,7 +32,7 @@ static void draw_pad(uint8_t x,uint8_t y,uint16_t attr,uint16_t bits) {
 
 void video_decompress_sprite_3x3(const uint16_t *bitstream) {
 	uint32_t sprite[72];
-	huffman_decode(headerTree,24,bitstream,(uint8_t*)sprite,24*24);
+	huffman_decode(headerTree,24,bitstream,(uint8_t*)sprite,24*12);
 	video_upload_sprite(sprite,9);
 }
 
@@ -44,11 +43,28 @@ void Main() {
 
 	// asm volatile("move #$2000,sr");
 
+	video_set_vram_write_addr(0x0800);
+	uint8_t palettes[32];
+	const uint32_t *b = tiles_directory + tiles_walls_2_0;
+	for (int i=0; i<27; i++) {
+		palettes[i] = b[i] >> 29;
+		// 68000 has a 24 bit data bus, upper eight bits aren't used
+		// would ordinarity use lower bits but linker doesn't align to 32 bit boundaries
+		video_decompress_sprite_3x3((uint16_t*)b[i]);
+	}
+	b = tiles_directory + tiles_decor_2_0;
+	palettes[27] = (b[0] >> 29) | 4; // doors have priority
+	video_decompress_sprite_3x3((uint16_t*)b[0]);
+	for (int i=0; i<8*9; i++)
+		VDP_DATA_L = 0;
+	b = tiles_directory + tiles_decor_1_0;
+	for (int i=0; i<4; i++) {
+		palettes[28+i] = (b[i] >> 29) | 4; // spider webs have priority
+		video_decompress_sprite_3x3((uint16_t*)b[i]);
+	}
+
 	video_set_vram_write_addr(0);
 	video_upload_bitmap_font(&font8x8_basic[0][0],64,15,14,32);
-
-	// video_draw_string(video_plane_a_addr(10,10),text_attr,flags & REG_VERSION_PAL?"PAL ":"NTSC");
-	// video_draw_string(video_plane_a_addr(10,12),text_attr,flags & REG_VERSION_OVERSEAS?"OVERSEAS":"DOMESTIC");
 
 	video_draw_string(video_plane_w_addr(32,0),video_window_attr,"STR:18");
 	video_draw_string(video_plane_w_addr(32,1),video_window_attr,"DEX:11");
@@ -62,26 +78,6 @@ void Main() {
 	video_upload_palette(2,tiles_palette_2);
 	video_upload_palette(3,tiles_palette_3);
 
-	video_set_vram_write_addr(0x0800);
-	uint8_t palettes[32];
-	const uint32_t *b = tiles_directory + tiles_walls_2_0;
-	for (int i=0; i<27; i++) {
-		palettes[i] = b[i] >> 29;
-		// 68000 has a 24 bit data bus, upper eight bits aren't used
-		// would ordinarity use lower bits but linker doesn't align to 32 bit boundaries
-		video_decompress_sprite_3x3((uint16_t*)b[i]);
-	}
-	uint32_t d = tiles_directory[tiles_decor_2_0];
-	palettes[27] = (d >> 29) | 4; // doors have priority
-	//video_decompress_sprite_3x3((uint16_t*)d);
-	for (int i=0; i<2*8*9; i++)
-		VDP_DATA_L = 0;
-	b = tiles_directory + tiles_decor_1_0;
-	for (int i=0; i<4; i++) {
-		palettes[28+i] = (b[i] >> 29) | 4; // spider webs have priority
-		video_decompress_sprite_3x3((uint16_t*)b[i]);
-	}
-
 	maze_init(64,palettes);
 	maze_draw(0,0);
 
@@ -93,7 +89,11 @@ void Main() {
 	uint32_t next = 0;
 	uint32_t off_x = 0, off_y = 0;
 	uint16_t prevTi = 0xFFFF;
+	int8_t bodyTree[64];
 	uint32_t sprite[72];
+	int state = 0;
+	size_t progress;
+	uint16_t *src;
 	while (1) {
 		elapsed += step;
 		char timer[6];
@@ -106,9 +106,22 @@ void Main() {
 		timer[0] = (e % 10) + '0';
 
 		uint16_t ti = modulo(elapsed >> 12, tiles_chars_21_17-tiles_chars_0_0+1) + tiles_chars_0_0;
-		if (ti != prevTi) {
-			huffman_decode(headerTree,24,(uint16_t*)tiles_directory[ti],(uint8_t*)sprite,24*24);
+		if (ti != prevTi)  {
+			state = 1;
 			prevTi = ti;
+			src = (uint16_t*)tiles_directory[ti];
+		}
+		if (state == 1) {
+			progress = huffman_decode_header(bodyTree,headerTree,24,src);
+			state = 2;
+		}
+		else if (state == 2) {
+			progress = huffman_decode_body(bodyTree,src,(uint8_t*)sprite,24*12,progress);
+			state = 3;
+		}
+		else if (state == 3) {
+			progress = huffman_decode_body(bodyTree,src,(uint8_t*)sprite,24*24,progress);
+			state = 0;
 		}
 
 		while (!vbi);
