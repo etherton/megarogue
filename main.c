@@ -10,6 +10,7 @@
 #include "font8x8_basic.h"
 
 extern volatile uint8_t vbi;
+extern volatile uint16_t hblanks;
 
 extern const int8_t headerTree[];
 
@@ -34,6 +35,26 @@ void video_decompress_sprite_3x3(const uint16_t *bitstream) {
 	uint32_t sprite[72];
 	huffman_decode(headerTree,24,bitstream,(uint8_t*)sprite,24*12);
 	video_upload_sprite(sprite,9);
+}
+
+const char *to_string_5(uint16_t e) {
+	static char str[6];
+	str[5] = 0;
+	uint32_t v = div_mod(e,10); str[4] = (v>>16)+'0';
+	v = div_mod((uint16_t)v,10); str[3] = (v>>16)+'0';
+	v = div_mod((uint16_t)v,10); str[2] = (v>>16)+'0';
+	v = div_mod((uint16_t)v,10); str[1] = (v>>16)+'0';
+	v = div_mod((uint16_t)v,10); str[0] = (v>>16)+'0';
+	return str;
+}
+
+const char *to_string_3(uint16_t e) {
+	static char str[4];
+	str[3] = 0;
+	uint32_t v = div_mod(e,10); str[2] = (v>>16)+'0';
+	v = div_mod((uint16_t)v,10); str[1] = (v>>16)+'0';
+	v = div_mod((uint16_t)v,10); str[0] = (v>>16)+'0';
+	return str;
 }
 
 void Main() {
@@ -94,39 +115,41 @@ void Main() {
 	int state = 0;
 	size_t progress;
 	uint16_t *src;
+	uint16_t profile1=0, profile2=0, profile3=0;
 	while (1) {
 		elapsed += step;
-		char timer[6];
-		uint16_t e = elapsed >> 16;
-		timer[5] = 0;
-		timer[4] = (e % 10) + '0'; e /= 10;
-		timer[3] = (e % 10) + '0'; e /= 10;
-		timer[2] = (e % 10) + '0'; e /= 10;
-		timer[1] = (e % 10) + '0'; e /= 10;
-		timer[0] = (e % 10) + '0';
 
-		uint16_t ti = modulo(elapsed >> 12, tiles_chars_21_17-tiles_chars_0_0+1) + tiles_chars_0_0;
+		uint16_t ti = modulo(elapsed >> 15, tiles_chars_21_17-tiles_chars_0_0+1) + tiles_chars_0_0;
 		if (ti != prevTi)  {
 			state = 1;
 			prevTi = ti;
 			src = (uint16_t*)tiles_directory[ti];
 		}
 		if (state == 1) {
+			profile1 = hblanks;
 			progress = huffman_decode_header(bodyTree,headerTree,24,src);
 			state = 2;
+			profile1 = hblanks - profile1;
 		}
 		else if (state == 2) {
+			profile2 = hblanks;
 			progress = huffman_decode_body(bodyTree,src,(uint8_t*)sprite,24*12,progress);
 			state = 3;
+			profile2 = hblanks - profile2;
 		}
 		else if (state == 3) {
+			profile3 = hblanks;
 			progress = huffman_decode_body(bodyTree,src,(uint8_t*)sprite,24*24,progress);
 			state = 0;
+			profile3 = hblanks - profile3;
 		}
 
 		while (!vbi);
 		vbi = 0;
-		video_draw_string(video_plane_w_addr(32,10),video_window_attr,timer);
+		video_draw_string(video_plane_w_addr(34,10),video_window_attr,to_string_3(elapsed>>16));
+		video_draw_string(video_plane_w_addr(34,11),video_window_attr,to_string_3(profile1));
+		video_draw_string(video_plane_w_addr(34,12),video_window_attr,to_string_3(profile2));
+		video_draw_string(video_plane_w_addr(34,13),video_window_attr,to_string_3(profile3));
 
 		video_set_vram_write_addr(0xF000);
 		VDP_DATA_W = 128 + 50 + ((elapsed >> 13) & 127); // y

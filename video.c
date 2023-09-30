@@ -11,7 +11,7 @@ const uint8_t plane_shifts[] = { 5, 6, 0, 7 }; // 32,64,128
 uint16_t video_window_attr;
 
 void video_init(uint8_t plane_size,uint16_t attr) {
-	VDP_CTRL_W = 0x8004; // No HBI, no HV latch
+	VDP_CTRL_W = 0x8014; // Enable HBI, no HV latch
 	VDP_CTRL_W = 0x8134; // No display, VBI, DMA OK, V28
 	VDP_CTRL_W = 0x8200 | (0xC000 >> 10); // Plane A: $C000
 	VDP_CTRL_W = 0x8300 | (0xD000 >> 10); // Window:  $D000
@@ -19,6 +19,7 @@ void video_init(uint8_t plane_size,uint16_t attr) {
 	VDP_CTRL_W = 0x8500 | (0xF000 >> 9);  // Sprites: $F000
 	VDP_CTRL_W = 0x8700; // BG color: palette 0, index 0
 	VDP_CTRL_W = 0x8B00; // No IRQ2, full scrolling
+	VDP_CTRL_W = 0x8A01; // HBLANK every scanline
 	VDP_CTRL_W = 0x8C81; // H40, no S/H, no interlace
 	VDP_CTRL_W = 0x8D00 | (0xF800 >> 10); // Hscroll: $F800
 	VDP_CTRL_W = 0x8F02; // Autoincrement: 2 bytes
@@ -48,7 +49,6 @@ void video_init(uint8_t plane_size,uint16_t attr) {
 	c = 0x2000 >> 2;
 	while (c--)
 		VDP_DATA_L = 0;
-	c = 0x2000 >> 2;
 }
 
 void video_config_window(uint8_t h,uint8_t v) {

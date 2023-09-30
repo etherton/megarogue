@@ -39,11 +39,17 @@ void trapv_exception() {
 }
 
 volatile uint8_t vbi;
+volatile uint16_t hblanks;
 
 volatile uint32_t __halt1, __halt2;
 
 void interrupt_h() {
-	asm("rte");
+	asm(	"movel %d0,-(%a7)\n"
+		"movew hblanks,%d0\n"
+		"addqw #1,%d0\n"
+		"movew %d0,hblanks\n"
+		"movel (%a7)+,%d0\n"
+		"rte");
 	// asm(".short 0x4E73"); // RTE - 0100 1110 0111 0011
 }
 
