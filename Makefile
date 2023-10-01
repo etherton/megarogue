@@ -45,7 +45,7 @@ megarogue.rom: $(OBJS) fixrom
 
 run: megarogue.rom
 	# ~/Downloads/blastem-osx-0.6.2/dis megarogue.rom
-	~/Downloads/blastem-osx-0.6.2/blastem megarogue.rom > /dev/null
+	~/Downloads/blastem-osx-0.6.2/blastem megarogue.rom > /dev/null &
 
 debug: megarogue.rom
 	nm megarogue | grep " T "

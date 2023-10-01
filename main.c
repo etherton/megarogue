@@ -119,7 +119,7 @@ void Main() {
 	while (1) {
 		elapsed += step;
 
-		uint16_t ti = tiles_chars_0_0;//modulo(elapsed >> 15, tiles_chars_21_17-tiles_chars_0_0+1) + tiles_chars_0_0;
+		uint16_t ti = modulo(elapsed >> 15, tiles_chars_21_17-tiles_chars_0_0+1) + tiles_chars_0_0;
 		if (ti != prevTi)  {
 			state = 1;
 			prevTi = ti;
@@ -128,20 +128,15 @@ void Main() {
 		if (state == 1) {
 			profile1 = hblanks;
 			progress = huffman_decode_header(bodyTree,headerTree,NSYMS,src);
+			progress = huffman_decode_body(bodyTree,src,(uint8_t*)sprite,24*12,progress);
 			state = 2;
 			profile1 = hblanks - profile1;
 		}
 		else if (state == 2) {
 			profile2 = hblanks;
-			progress = huffman_decode_body(bodyTree,src,(uint8_t*)sprite,24*12,progress);
-			state = 3;
-			profile2 = hblanks - profile2;
-		}
-		else if (state == 3) {
-			profile3 = hblanks;
 			progress = huffman_decode_body(bodyTree,src,(uint8_t*)sprite,24*24,progress);
 			state = 0;
-			profile3 = hblanks - profile3;
+			profile2 = hblanks - profile2;
 		}
 
 		while (!vbi);
