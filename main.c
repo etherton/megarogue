@@ -128,15 +128,21 @@ void Main() {
 		if (state == 1) {
 			profile1 = hblanks;
 			progress = huffman_decode_header(bodyTree,headerTree,NSYMS,src);
-			progress = huffman_decode_body(bodyTree,src,(uint8_t*)sprite,24*12,progress);
+			progress = huffman_decode_body(bodyTree,src,(uint8_t*)sprite,24*6,progress);
 			state = 2;
 			profile1 = hblanks - profile1;
 		}
 		else if (state == 2) {
 			profile2 = hblanks;
+			progress = huffman_decode_body(bodyTree,src,(uint8_t*)sprite,24*15,progress);
+			state = 3;
+			profile2 = hblanks - profile2;
+		}
+		else if (state == 3) {
+			profile3 = hblanks;
 			progress = huffman_decode_body(bodyTree,src,(uint8_t*)sprite,24*24,progress);
 			state = 0;
-			profile2 = hblanks - profile2;
+			profile3 = hblanks - profile3;
 		}
 
 		while (!vbi);
