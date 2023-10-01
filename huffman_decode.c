@@ -80,12 +80,11 @@ int huffman_generate_tree(int8_t outTree[],const uint8_t *widths,int numCodes) {
 #define DECODE(tree,bitStream,bitOffset,decoded) \
 	decoded = 0; \
 	for(;;) { \
-		int bit = bitBuffer & 1; \
+		decoded = tree[decoded + (bitBuffer & 1)]; \
 		if (++bitOffset & 15) \
 			bitBuffer >>= 1; \
 		else \
 			bitBuffer = bitStream[bitOffset>>4]; \
-		decoded = tree[decoded + bit]; \
 		if (decoded < 0) \
 			decoded = -decoded; \
 		else \
