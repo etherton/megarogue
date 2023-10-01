@@ -119,7 +119,7 @@ void Main() {
 	while (1) {
 		elapsed += step;
 
-		uint16_t ti = modulo(elapsed >> 15, tiles_chars_21_17-tiles_chars_0_0+1) + tiles_chars_0_0;
+		uint16_t ti = /*modulo(elapsed >> 15, tiles_chars_21_17-tiles_chars_0_0+1) +*/ tiles_chars_0_0;
 		if (ti != prevTi)  {
 			state = 1;
 			prevTi = ti;
@@ -151,6 +151,7 @@ void Main() {
 		video_draw_string(video_plane_w_addr(34,11),video_window_attr,to_string_3(profile1));
 		video_draw_string(video_plane_w_addr(34,12),video_window_attr,to_string_3(profile2));
 		video_draw_string(video_plane_w_addr(34,13),video_window_attr,to_string_3(profile3));
+		video_draw_string(video_plane_w_addr(34,15),video_window_attr,to_string_3(profile1+profile2+profile3));
 
 		video_set_vram_write_addr(0xF000);
 		VDP_DATA_W = 128 + 50 + ((elapsed >> 13) & 127); // y

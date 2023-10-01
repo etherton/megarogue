@@ -59,10 +59,13 @@ int huffman_generate_tree(int8_t outTree[],const uint8_t *widths,int numCodes) {
 	return treeLength;
 }
 
-#define DECODE(tree,bitstream,bitOffset,decoded) \
+#if 0
+#define DECODE_SETUP(bitStream,bitOffset)
+
+#define DECODE(tree,bitStream,bitOffset,decoded) \
 	decoded = 0; \
 	for(;;) { \
-		int bit = (bitstream[bitOffset >> 4] >> (bitOffset & 15)) & 1; \
+		int bit = (bitStream[bitOffset >> 4] >> (bitOffset & 15)) & 1; \
 		bitOffset++; \
 		decoded = tree[decoded + bit]; \
 		if (decoded < 0) \
@@ -70,13 +73,32 @@ int huffman_generate_tree(int8_t outTree[],const uint8_t *widths,int numCodes) {
 		else \
 			break; \
 	}
-		
+#else	
+#define DECODE_SETUP(bitStream,bitOffset) \
+	uint16_t bitBuffer = bitStream[bitOffset>>4] >> (bitOffset & 15);
+
+#define DECODE(tree,bitStream,bitOffset,decoded) \
+	decoded = 0; \
+	for(;;) { \
+		int bit = bitBuffer & 1; \
+		if (++bitOffset & 15) \
+			bitBuffer >>= 1; \
+		else \
+			bitBuffer = bitStream[bitOffset>>4]; \
+		decoded = tree[decoded + bit]; \
+		if (decoded < 0) \
+			decoded = -decoded; \
+		else \
+			break; \
+	}
+#endif
 
 uint32_t huffman_decode_header(int8_t outTree[],const int8_t *headerTree,uint32_t headerSize,const uint16_t *bitstream) {
 	// Decode the header
 	assert(headerSize<=24);
 	uint8_t widths[24];
 	size_t bitOffset = 0;
+	DECODE_SETUP(bitstream,bitOffset);
 	for (size_t i=0; i<headerSize; i++) {
 		int w;
 		DECODE(headerTree,bitstream,bitOffset,w);
@@ -92,6 +114,7 @@ uint32_t huffman_decode_body(const int8_t *bodyTree,const uint16_t *bitstream,ui
 	uint16_t runLength = 0;
 	uint16_t bitOffset = (uint16_t) progress;
 	uint16_t destOffset = progress >> 16;
+	DECODE_SETUP(bitstream,bitOffset);
 	while (destOffset < endOffset || runLength) {
 		int d;
 		DECODE(bodyTree,bitstream,bitOffset,d);
