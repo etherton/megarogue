@@ -26,16 +26,16 @@ main.o: main.c md_api.h md_math.h maze.h tiles.h font8x8_basic.h huffman_decode.
 
 tiles.c tiles.h: mkpal tile_manifest.txt
 	# ./mkpal tile_manifest.txt tiles 4 10
-	./mkpal tile_manifest.txt tiles 4 10
+	./mkpal tile_manifest.txt tiles 4 none
 
 # brew install rosco-m68k/toolchain/binutils-cross-m68k
 # brew install rosco-m68k/toolchain/gcc-cross-m68k@13  
-# fnotree... stops the compiler from synthesizing non-existent calls to memset/memcpy
+# ffreestanding stops the compiler from synthesizing non-existent calls to memset/memcpy
 
 OBJS = vectors.o header.o start.o main.o joypad.o video.o tiles.o maze.o huffman_decode.o
 
 %.o: %.c
-	/opt/homebrew/bin/m68k-elf-gcc -DNDEBUG -Wno-multichar -march=68000 -fno-tree-loop-distribute-patterns -O3 -c $<
+	/opt/homebrew/bin/m68k-elf-gcc -DNDEBUG -Wno-multichar -march=68000 -ffreestanding -O3 -c $<
 
 megarogue.rom: $(OBJS) fixrom
 	/opt/homebrew/bin/m68k-elf-ld -T md.script $(OBJS) -o megarogue

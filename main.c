@@ -32,9 +32,13 @@ static void draw_pad(uint8_t x,uint8_t y,uint16_t attr,uint16_t bits) {
 }
 
 void video_decompress_sprite_3x3(const uint16_t *bitstream) {
+#if 0
 	uint32_t sprite[72];
 	huffman_decode(headerTree,NSYMS,bitstream,(uint8_t*)sprite,24*24/2);
 	video_upload_sprite(sprite,9);
+#else
+	video_upload_sprite((uint32_t*)bitstream,9);
+#endif
 }
 
 const char *to_string_5(uint16_t e) {
@@ -119,7 +123,8 @@ void Main() {
 	while (1) {
 		elapsed += step;
 
-		uint16_t ti = /*modulo(elapsed >> 15, tiles_chars_21_17-tiles_chars_0_0+1) +*/ tiles_chars_0_0;
+		uint16_t ti = modulo(elapsed >> 14, 22*18);
+#if 0
 		if (ti != prevTi)  {
 			state = 1;
 			prevTi = ti;
@@ -144,6 +149,7 @@ void Main() {
 			state = 0;
 			profile3 = hblanks - profile3;
 		}
+#endif
 
 		while (!vbi);
 		vbi = 0;
@@ -161,7 +167,7 @@ void Main() {
 		VDP_DATA_W = 128 + 20 + ((elapsed >> 12) & 255); // x
 		video_set_vram_write_addr(sprite_addr);
 
-		video_upload_sprite(sprite,9);
+		video_upload_sprite(tiles_directory[ti],9);
 
 		video_set_vram_write_addr(0xF800);
 		VDP_DATA_L = (uint16_t)(-off_x) | (-off_x << 16);
