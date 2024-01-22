@@ -6,5 +6,7 @@ extern void maze_new_left_column(uint32_t off_x,uint32_t off_y);
 extern void maze_new_bottom_row(uint32_t off_x,uint32_t off_y);
 extern void maze_new_top_row(uint32_t off_x,uint32_t off_y);
 
+extern _Bool maze_test(int r,int c);
+
 // Must be a multiple of eight
 #define MAZE_SIZE 64

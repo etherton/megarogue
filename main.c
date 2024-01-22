@@ -113,6 +113,8 @@ void Main() {
 	uint32_t step = (flags & REG_VERSION_PAL)? 65536/50 : 65536/60;
 	uint32_t next = 0;
 	uint32_t off_x = 0, off_y = 0;
+	uint16_t player_x = 1, player_y = 1;
+	uint16_t player_x_frac = 0, player_y_frac = 0;
 	uint16_t prevTi = 0xFFFF;
 	int8_t bodyTree[64];
 	uint32_t sprite[72];
@@ -154,20 +156,20 @@ void Main() {
 		while (!vbi);
 		vbi = 0;
 		video_draw_string(video_plane_w_addr(34,10),video_window_attr,to_string_3(elapsed>>16));
-		video_draw_string(video_plane_w_addr(34,11),video_window_attr,to_string_3(profile1));
+		/*video_draw_string(video_plane_w_addr(34,11),video_window_attr,to_string_3(profile1));
 		video_draw_string(video_plane_w_addr(34,12),video_window_attr,to_string_3(profile2));
 		video_draw_string(video_plane_w_addr(34,13),video_window_attr,to_string_3(profile3));
-		video_draw_string(video_plane_w_addr(34,15),video_window_attr,to_string_3(profile1+profile2+profile3));
+		video_draw_string(video_plane_w_addr(34,15),video_window_attr,to_string_3(profile1+profile2+profile3)); */
 
 		video_set_vram_write_addr(0xF000);
-		VDP_DATA_W = 128 + 50 + ((elapsed >> 13) & 127); // y
+		VDP_DATA_W = 128 + player_y * 24 + player_y_frac - off_y;
 		VDP_DATA_W = 0x0A00;
 		const int sprite_addr = 0xC800;
-		VDP_DATA_W = ((tiles_directory[ti] >> 16) & 0x6000) | (sprite_addr >> 5);
-		VDP_DATA_W = 128 + 20 + ((elapsed >> 12) & 255); // x
+		VDP_DATA_W = ((tiles_directory[0] >> 16) & 0x6000) | (sprite_addr >> 5);
+		VDP_DATA_W = 128 + player_x * 24 + player_x_frac - off_x;
 		video_set_vram_write_addr(sprite_addr);
 
-		video_upload_sprite(tiles_directory[ti],9);
+		video_upload_sprite((uint32_t*)tiles_directory[0],9);
 
 		video_set_vram_write_addr(0xF800);
 		VDP_DATA_L = (uint16_t)(-off_x) | (-off_x << 16);
@@ -175,14 +177,37 @@ void Main() {
 		VDP_CTRL_L = 0x40000010;
 		VDP_DATA_L = off_y | (off_y << 16);
 
+		uint32_t new_off_x = off_x, new_off_y = off_y;
 		uint16_t pad0 = joypad_read(0), pad1 = joypad_read(1);
-		if (pad0 & JOYPAD_START)
-			elapsed = 0;
-		uint8_t d = (pad0 & JOYPAD_A)? 8 : 1;
-		uint32_t new_off_x = (pad0 & JOYPAD_RIGHT) && (off_x+d < (MAZE_SIZE * 3 - 40) * 8)? off_x + d :
-			(pad0 & JOYPAD_LEFT) && off_x>=d? off_x - d : off_x;
-		uint32_t new_off_y = (pad0 & JOYPAD_DOWN) && (off_y+d < (MAZE_SIZE * 3 - 28) * 8)? off_y + d :
-			(pad0 & JOYPAD_UP) && off_y>=d ? off_y - d : off_y;
+		if ((pad0 & JOYPAD_RIGHT) && (player_x_frac || 
+			(!maze_test(player_y,player_x+1) && (!player_y_frac || !maze_test(player_y+1,player_x+1))))) {
+			if (++player_x_frac == 24)
+				++player_x, player_x_frac = 0;
+			if (player_x * 24 + player_x_frac > new_off_x + 26 * 8)
+				new_off_x = player_x * 24 + player_x_frac - 26 * 8;
+		}
+		else if ((pad0 & JOYPAD_LEFT) && (player_x_frac || 
+			(!maze_test(player_y,player_x-1) && (!player_y_frac || !maze_test(player_y+1,player_x-1))))) {
+			if (!player_x_frac--)
+				--player_x, player_x_frac = 23;
+			if (player_x * 24 + player_x_frac < new_off_x + 24)
+				new_off_x = player_x * 24 + player_x_frac - 24;
+		}
+		if ((pad0 & JOYPAD_UP) && (player_y_frac || 
+			(!maze_test(player_y-1,player_x) && (!player_x_frac || !maze_test(player_y-1,player_x+1))))) {
+			if (!player_y_frac--)
+				--player_y, player_y_frac = 23;
+			if (player_y * 24 + player_y_frac < new_off_y + 24)
+				new_off_y = player_y * 24 + player_y_frac - 24;
+		}
+		else if ((pad0 & JOYPAD_DOWN) && (player_y_frac || 
+			(!maze_test(player_y+1,player_x) && (!player_x_frac || !maze_test(player_y+1,player_x+1))))) {
+			if (++player_y_frac == 24)
+				++player_y, player_y_frac = 0;
+			if (player_y * 24 + player_y_frac > new_off_y + 22 * 8)
+				new_off_y = player_y * 24 + player_y_frac - 22 * 8;
+		}
+
 		if ((new_off_x>>3) > (off_x>>3))
 			maze_new_right_column(new_off_x>>3,off_y>>3);
 		else if ((new_off_x>>3) < (off_x>>3))
@@ -191,6 +216,7 @@ void Main() {
 			maze_new_bottom_row(new_off_x>>3,new_off_y>>3);
 		else if ((new_off_y>>3) < (off_y>>3))
 			maze_new_top_row(new_off_x>>3,new_off_y>>3);
+
 		off_y = new_off_y;
 		off_x = new_off_x;
 			

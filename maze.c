@@ -179,11 +179,16 @@ void maze_init(int base_tile,const uint8_t *palettes) {
 	draw_row(MAZE_SIZE-1,0,MAZE_SIZE-1);
 	draw_col(0,0,MAZE_SIZE-1);
 	draw_col(MAZE_SIZE-1,0,MAZE_SIZE-1);
+	seed = 12345;
 	make_maze(Random(2),0,MAZE_SIZE-1,0,MAZE_SIZE-1);
 }
 
 static inline _Bool test(int r,int c) {
 	return r>=0&r<MAZE_SIZE&&c>=0&&c<MAZE_SIZE?(maze[r][c>>3] & bit[c&7]) != 0 : 0;
+}
+
+_Bool maze_test(int r,int c) {
+	return test(r,c);
 }
 
 uint8_t maze_get_tile(_Bool ab,int row,int col) {
