@@ -183,8 +183,8 @@ void Main() {
 			(!maze_test(player_y,player_x+1) && (!player_y_frac || !maze_test(player_y+1,player_x+1))))) {
 			if (++player_x_frac == 24)
 				++player_x, player_x_frac = 0;
-			if (player_x * 24 + player_x_frac > new_off_x + 26 * 8)
-				new_off_x = player_x * 24 + player_x_frac - 26 * 8;
+			if (player_x * 24 + player_x_frac > new_off_x + 24 * 8)
+				new_off_x = player_x * 24 + player_x_frac - 24 * 8;
 		}
 		else if ((pad0 & JOYPAD_LEFT) && (player_x_frac || 
 			(!maze_test(player_y,player_x-1) && (!player_y_frac || !maze_test(player_y+1,player_x-1))))) {
@@ -204,8 +204,8 @@ void Main() {
 			(!maze_test(player_y+1,player_x) && (!player_x_frac || !maze_test(player_y+1,player_x+1))))) {
 			if (++player_y_frac == 24)
 				++player_y, player_y_frac = 0;
-			if (player_y * 24 + player_y_frac > new_off_y + 22 * 8)
-				new_off_y = player_y * 24 + player_y_frac - 22 * 8;
+			if (player_y * 24 + player_y_frac > new_off_y + 20 * 8)
+				new_off_y = player_y * 24 + player_y_frac - 20 * 8;
 		}
 
 		if ((new_off_x>>3) > (off_x>>3))
