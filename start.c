@@ -4,10 +4,8 @@
 
 #define TRAP(code) \
 	VDP_CTRL_L = 0x50400003; \
-	VDP_DATA_W = (uint8_t)(code>>24) - 32; \
-	VDP_DATA_W = (uint8_t)(code>>16) - 32; \
-	VDP_DATA_W = (uint8_t)(code>>8) - 32; \
-	VDP_DATA_W = (uint8_t)(code) - 32; \
+	VDP_DATA_L = (((uint8_t)(code>>24)-32)<<16) | ((uint8_t)(code>>16)-32); \
+	VDP_DATA_L = (((uint8_t)(code>> 8)-32)<<16) | ((uint8_t)(code)-32); \
 	while(1)
 
 void crash() {
@@ -43,20 +41,16 @@ volatile uint16_t hblanks;
 
 volatile uint32_t __halt1, __halt2;
 
-void interrupt_h() {
+__attribute__ ((interrupt)) void interrupt_h() {
 	asm(	"movel %d0,-(%a7)\n"
 		"movew hblanks,%d0\n"
 		"addqw #1,%d0\n"
 		"movew %d0,hblanks\n"
-		"movel (%a7)+,%d0\n"
-		"rte");
-	// asm(".short 0x4E73"); // RTE - 0100 1110 0111 0011
+		"movel (%a7)+,%d0\n");
 }
 
-void interrupt_v() {
+__attribute__ ((interrupt)) void interrupt_v() {
 	asm("move.b #1, vbi");
-	asm("rte");
-	// asm(".short 0x4E73"); // RTE - 0100 1110 0111 0011
 }
 
 extern char _bstart[], _bend[];
