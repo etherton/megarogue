@@ -37,8 +37,12 @@
 23 3 way T (not left)
 24 3 way T (not down)
 
-26 broken vertical
-27 broken horizontal
+25 broken vertical
+26 broken horizontal
+
+27 door
+28 open
+29,30,31,32 spider webs
 
 */
 
@@ -179,7 +183,7 @@ void maze_init(int base_tile,const uint8_t *palettes) {
 	draw_row(MAZE_SIZE-1,0,MAZE_SIZE-1);
 	draw_col(0,0,MAZE_SIZE-1);
 	draw_col(MAZE_SIZE-1,0,MAZE_SIZE-1);
-	seed = 12345;
+	seed = 12346;
 	make_maze(Random(2),0,MAZE_SIZE-1,0,MAZE_SIZE-1);
 }
 
