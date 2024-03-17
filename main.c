@@ -69,7 +69,7 @@ void Main() {
 	// asm volatile("move #$2000,sr");
 
 	video_set_vram_write_addr(0x0800);
-	uint8_t palettes[32];
+	uint8_t palettes[33];
 	const uint32_t *b = tiles_directory + tiles_walls_2_0;
 	for (int i=0; i<27; i++) {
 		palettes[i] = b[i] >> 29;
@@ -84,7 +84,7 @@ void Main() {
 		VDP_DATA_L = 0;
 	b = tiles_directory + tiles_decor_1_0;
 	for (int i=0; i<4; i++) {
-		palettes[28+i] = (b[i] >> 29) | 4; // spider webs have priority
+		palettes[29+i] = (b[i] >> 29) | 4; // spider webs have priority
 		video_decompress_sprite_3x3((uint16_t*)b[i]);
 	}
 
